@@ -26,7 +26,7 @@ class ResnetBlockB(nn.Module):
 class Resnet18(nn.Module):
     """Resnet 18 as defined in https://arxiv.org/pdf/1512.03385.pdf."""
 
-    def __init__(self, channel_multiplier: float = 1.0):
+    def __init__(self, in_channels: int = 3, channel_multiplier: float = 1.0):
         super().__init__()
         channels = int(64*channel_multiplier)
         self._init_conv = nn.Conv2d(in_channels=3, out_channels=channels, kernel_size=(7, 7), stride=(2, 2))
@@ -70,18 +70,19 @@ class SimpleCNN(nn.Module):
     @staticmethod
     def _build_conv(in_channels: int, out_channels: int, downsample_ratio: int):
         conv_element = nn.Sequential()
-        conv_element.append(nn.Conv2d(in_channels=in_channels, out_channels=out_channels, kernel_size=(3, 3), stride=(downsample_ratio, downsample_ratio)))
+        conv_element.append(nn.Conv2d(in_channels=in_channels, out_channels=out_channels, kernel_size=(3, 3), stride=(downsample_ratio, downsample_ratio), padding=1))
         conv_element.append(nn.BatchNorm2d(out_channels))
         conv_element.append(nn.ReLU())
         return conv_element
 
-    def __init__(self, channel_multiplier: float = 1.0):
+    def __init__(self, in_channels: int = 3, channel_multiplier: float = 1.0):
         super().__init__()
         channels = int(16*channel_multiplier)
         self._body = nn.Sequential()
         
         # Stage 1
-        self._body.append(SimpleCNN._build_conv(in_channels=3, out_channels=channels, downsample_ratio=1))
+        self._body.append(SimpleCNN._build_conv(in_channels=in_channels, out_channels=channels, downsample_ratio=1))
+        self._body.append(SimpleCNN._build_conv(in_channels=channels, out_channels=channels, downsample_ratio=1))
         self._body.append(SimpleCNN._build_conv(in_channels=channels, out_channels=channels*2, downsample_ratio=2))
         self._body.append(SimpleCNN._build_conv(in_channels=channels*2, out_channels=channels*2, downsample_ratio=1))
         self._body.append(SimpleCNN._build_conv(in_channels=channels*2, out_channels=channels*4, downsample_ratio=2))
