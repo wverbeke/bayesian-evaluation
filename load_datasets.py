@@ -59,6 +59,11 @@ def load_GTSRB_data():
     # Because of inconsistent pytorch interfaces we can not reuse _build_data_loader here.
     train_data = datasets.GTSRB(split="train", transform=train_transforms, **_DATA_KWARGS)
     train_loader = DataLoader(train_data, batch_size=256, num_workers=os.cpu_count(), shuffle=True, drop_last=True)
-    eval_data = datasets.GTSRB(split="test", transform=_SHARED_TRANSFORMS, **_DATA_KWARGS)
+
+    eval_transforms = transforms.Compose([
+        transforms.Resize((56, 56)),
+        _SHARED_TRANSFORMS
+    ])
+    eval_loader_data = datasets.GTSRB(split="test", transform=eval_transforms, **_DATA_KWARGS)
     eval_loader = DataLoader(eval_data, batch_size=1024, num_workers=os.cpu_count(), shuffle=False, drop_last=False)
     return train_loader, eval_loader

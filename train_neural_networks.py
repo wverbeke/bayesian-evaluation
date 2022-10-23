@@ -8,7 +8,7 @@ from torch import nn
 
 from load_datasets import load_fashionMNIST_data
 from build_neural_networks import SimpleCNN, Classifier
-from data_tasks import MODEL_DIRECTORY, DEVICE, FashionMNISTTask, DataTask
+from data_tasks import MODEL_DIRECTORY, DEVICE, FashionMNISTTask, DataTask, task_register
 
 class ModelTrainer:
 
@@ -94,7 +94,6 @@ class EarlyStopper:
         return False
 
     
-#def train_model(data_loader_fn: Callable, model: nn.Module, model_name: str):
 def train_model(data_task: DataTask):
 
     # Make the data laoders for the model.
@@ -117,6 +116,7 @@ def train_model(data_task: DataTask):
 
 
 if __name__ == '__main__':
-    # Test whether the fashionMNIST model can be trained.
-    # It should converge relatively quickly.
-    train_model(FashionMNISTTask)
+    # Train all neural network models until convergence.
+    for task in task_register:
+        print(f"Training task {task.__name__}")
+        train_model(task)

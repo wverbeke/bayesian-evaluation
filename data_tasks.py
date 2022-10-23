@@ -51,7 +51,13 @@ class DataTask:
         model.load_state_dict(torch.load(cls.model_path()))
 
 
+task_register = []
+def register_task(cls):
+    task_register.append(cls)
+    return cls
 
+
+@register_task
 class FashionMNISTTask(DataTask):
 
     def num_classes():
@@ -67,6 +73,8 @@ class FashionMNISTTask(DataTask):
         return load_fashionMNIST_data()
 
 
+
+@register_task
 class CIFAR10Task(DataTask):
 
     def num_classes():
@@ -83,6 +91,7 @@ class CIFAR10Task(DataTask):
 
 
 
+@register_task
 class CIFAR100Task(DataTask):
 
     def num_classes():
@@ -99,6 +108,7 @@ class CIFAR100Task(DataTask):
 
 
 
+@register_task
 class GTSRBTask(DataTask):
 
     def num_classes():
