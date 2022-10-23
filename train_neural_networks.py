@@ -8,8 +8,7 @@ from torch import nn
 
 from load_datasets import load_fashionMNIST_data
 from build_neural_networks import SimpleCNN, Classifier
-
-DEVICE = ("cuda" if torch.cuda.is_available() else "cpu")
+from data_tasks import MODEL_DIRECTORY, DEVICE, FashionMNISTTask, DataTask
 
 class ModelTrainer:
 
@@ -95,31 +94,29 @@ class EarlyStopper:
         return False
 
     
-def train_model(data_loader_fn: Callable, model: nn.Module, model_name: str):
+#def train_model(data_loader_fn: Callable, model: nn.Module, model_name: str):
+def train_model(data_task: DataTask):
 
     # Make the data laoders for the model.
-    train_loader, eval_loader = data_loader_fn()
-
-    # Use the GPU if available.
-    model = model.to(DEVICE)
-    trainer = ModelTrainer(nn.CrossEntropyLoss(), torch.optim.Adam(model.parameters()), model)
+    train_loader, eval_loader = data_task.load_data()
+    model = data_task.build_model()
 
     # Train the model until the eval loss stops improving for more than 5 epochs.
+    trainer = ModelTrainer(nn.CrossEntropyLoss(), torch.optim.Adam(model.parameters()), model)
     callback = EarlyStopper(tolerance=5)
     while True:
         eval_loss = trainer.train_and_eval_epoch(train_loader, eval_loader)
         if not callback(eval_loss):
             break
+        break
 
     # Save the model.
-    model_directory = "trained_models"
-    os.makedirs(model_directory, exist_ok=True)
-    torch.save(model.state_dict(), os.path.join(model_directory, model_name))
+    os.makedirs(MODEL_DIRECTORY, exist_ok=True)
+    torch.save(model.state_dict(), data_task.model_path())
 
 
 
 if __name__ == '__main__':
     # Test whether the fashionMNIST model can be trained.
     # It should converge relatively quickly.
-    simple_cnn = Classifier(SimpleCNN(in_channels=1), num_classes=10).to(DEVICE)
-    train_model(load_fashionMNIST_data, simple_cnn, "fashionMNIST_model")
+    train_model(FashionMNISTTask)
