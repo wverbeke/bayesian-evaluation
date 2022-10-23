@@ -107,7 +107,6 @@ def train_model(data_task: DataTask):
         eval_loss = trainer.train_and_eval_epoch(train_loader, eval_loader)
         if not callback(eval_loss):
             break
-        break
 
     # Save the model.
     os.makedirs(MODEL_DIRECTORY, exist_ok=True)
