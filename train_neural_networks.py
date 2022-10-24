@@ -2,13 +2,13 @@ from typing import Callable
 from tqdm import tqdm
 import math
 import os
+from enum import Enum
 
 import torch
 from torch import nn
 
-from load_datasets import load_fashionMNIST_data
 from build_neural_networks import SimpleCNN, Classifier
-from data_tasks import MODEL_DIRECTORY, DEVICE, FashionMNISTTask, DataTask, task_register
+from data_tasks import MODEL_DIRECTORY, DEVICE, DataTask, task_register
 
 class ModelTrainer:
 
@@ -76,6 +76,14 @@ class ModelTrainer:
         return eval_loss
 
 
+
+class CallbackResult(Enum):
+    NEW_BEST = 0
+    WORSE = 1
+    STOP = 2
+
+
+
 class EarlyStopper:
 
     def __init__(self, tolerance: int):
@@ -87,11 +95,11 @@ class EarlyStopper:
         if new_eval_loss < self._min_eval_loss:
             self._min_eval_loss = new_eval_loss
             self._fail_count = 0
-            return True
+            return CallbackResult.NEW_BEST
         if self._fail_count < self._tolerance:
             self._fail_count += 1
-            return True
-        return False
+            return CallbackResult.WORSE
+        return CallbackResult.STOP
 
     
 def train_model(data_task: DataTask):
@@ -100,17 +108,21 @@ def train_model(data_task: DataTask):
     train_loader, eval_loader = data_task.load_data()
     model = data_task.build_model()
 
+    # Directory where the trained model will be stored.
+    os.makedirs(MODEL_DIRECTORY, exist_ok=True)
+
     # Train the model until the eval loss stops improving for more than 5 epochs.
     trainer = ModelTrainer(nn.CrossEntropyLoss(), torch.optim.Adam(model.parameters()), model)
-    callback = EarlyStopper(tolerance=5)
+    callback = EarlyStopper(tolerance=7)
     while True:
         eval_loss = trainer.train_and_eval_epoch(train_loader, eval_loader)
-        if not callback(eval_loss):
-            break
+        callback_result = callback(eval_loss)
+        if callback_result == CallbackResult.NEW_BEST:
 
-    # Save the model.
-    os.makedirs(MODEL_DIRECTORY, exist_ok=True)
-    torch.save(model.state_dict(), data_task.model_path())
+            # Save the model.
+            torch.save(model.state_dict(), data_task.model_path())
+        elif callback_result == CallbackResult.STOP:
+            break
 
 
 

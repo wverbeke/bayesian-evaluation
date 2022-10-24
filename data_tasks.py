@@ -7,6 +7,7 @@ from build_neural_networks import Resnet18, SimpleCNN, Classifier
 from load_datasets import load_fashionMNIST_data, load_CIFAR10_data, load_CIFAR100_data, load_GTSRB_data
 
 MODEL_DIRECTORY = "trained_models"
+EVAL_DIRECTORY = "confusion_matrices"
 DEVICE = ("cuda" if torch.cuda.is_available() else "cpu")
 
 class DataTask:
@@ -18,12 +19,21 @@ class DataTask:
 
     @staticmethod
     @abstractmethod
-    def saved_model_name():
-        """Path to which the model will be loaded."""
+    def name():
+        """Name of the task.
+
+        This will determine the name of all output files from training and evaluation.
+        """
 
     @classmethod
     def model_path(cls):
-        return os.path.join(MODEL_DIRECTORY, cls.saved_model_name())
+        model_name = f"{cls.name()}_model"
+        return os.path.join(MODEL_DIRECTORY, model_name)
+
+    @classmethod
+    def confusion_matrix_path(cls):
+        cm_name = f"{cls.name()}_confusion_matrix.json"
+        return os.path.join(EVAL_DIRECTORY, cm_name)
 
     @staticmethod
     @abstractmethod
@@ -49,6 +59,7 @@ class DataTask:
             raise ValueError(f"Can not load model {cls.model_path()} because it does not exist.")
         model = cls.build_model()
         model.load_state_dict(torch.load(cls.model_path()))
+        return model
 
 
 task_register = []
@@ -63,8 +74,8 @@ class FashionMNISTTask(DataTask):
     def num_classes():
         return 10
 
-    def saved_model_name():
-        return "fashionMNIST_model"
+    def name():
+        return "fashionMNIST"
 
     def _build_model():
         return SimpleCNN(in_channels=1)
@@ -80,8 +91,8 @@ class CIFAR10Task(DataTask):
     def num_classes():
         return 10
 
-    def saved_model_name():
-        return "CIFAR10_model"
+    def name():
+        return "CIFAR10"
 
     def _build_model():
         return Resnet18(in_channels=3)
@@ -97,8 +108,8 @@ class CIFAR100Task(DataTask):
     def num_classes():
         return 100
 
-    def saved_model_name():
-        return "CIFAR100_model"
+    def name():
+        return "CIFAR100"
 
     def _build_model():
         return Resnet18(in_channels=3)
@@ -114,8 +125,8 @@ class GTSRBTask(DataTask):
     def num_classes():
         return 43
 
-    def saved_model_name():
-        return "GTSRB_model"
+    def name():
+        return "GTSRB"
 
     def _build_model():
         return Resnet18(in_channels=3)
