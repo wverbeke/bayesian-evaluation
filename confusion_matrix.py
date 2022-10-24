@@ -37,6 +37,17 @@ class BinaryCM:
     def __str__(self):
         return str(self.numpy())
 
+    def recall(self):
+        return self.tp/(self.tp + self.fn)
+
+    def precision(self):
+        return self.tp/(self.tp + self.fp)
+
+    def f1score(self):
+        p = self.precision()
+        r = self.recall()
+        return 2*(p*r)/(p + r)
+
 
 def convert_to_binary(confusion_matrix: np.ndarray, class_index: int):
     """Convert a numpy confusion matrix into a binary confusion matrix."""
@@ -45,7 +56,7 @@ def convert_to_binary(confusion_matrix: np.ndarray, class_index: int):
         raise ValueError("Confusion matrix must be of rank 2, but a matrix of rank {len(confusion_matrix.shape)} was given.")
     tp = confusion_matrix[class_index, class_index]
     fp = np.sum(np.delete(confusion_matrix[class_index], class_index))
-    fn = np.sum(np.delete(confusion_matrix, class_index, axis=0)[:, class_index])2
+    fn = np.sum(np.delete(confusion_matrix, class_index, axis=0)[:, class_index])
     tn = np.sum(np.delete(np.delete(confusion_matrix, class_index, axis=0), class_index, axis=1))
     return BinaryCM(tp=tp, fp=fp, fn=fn, tn=tn)
 
