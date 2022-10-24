@@ -7,85 +7,91 @@ The statistical model consists of three stages:
 2. The prior sampled from the hyperprior is used together with the likelihood to form a posterior for the performance of a class.
 3. A multinomial likelihood models the observed counts in the confusion matrix for a given class.
 """
+from typing import List
+import os
+
 import numpy as np
-import pymc3 as pm
+import pymc as pm
+
+from confusion_matrix import BinaryCM, convert_to_binary
+from data_tasks import CIFAR10Task
 
 
-def build_simple_model(num_classes: int, observed_cm: ):
+def build_simple_model(observed_cms: List[BinaryCM]):
     """Build a simple model in which each class has an independent prior on its confusion matrix."""
+    
+    # Compute the number of classes and the total count.
+    num_classes = len(observed_cms)
+    total_count = np.sum(observed_cms[0].numpy())
+
+    print(f"total_count = {total_count}")
+    print(f"num_classes = {num_classes}")
+    for c in observed_cms:
+        print(c.numpy())
+        print(np.sum(c.numpy()))
+
     with pm.Model() as model:
         for i in range(num_classes):
             # A confusion matrix has 4 entries so we need 4 priors.
-            prior = pm.Uniform(f"prior_class_{i}", lower=0.0, upper=1.0, shape=4)
-            likelihood = pm.Multinomial(f"likelihood_class_{i}", n=total_count, p=prior, observed=observed_cms[i])
+            #prior = pm.Uniform(f"prior_class_{i}", lower=0.0, upper=1.0, shape=4)
+            prior = pm.Dirichlet(f"prior_class_{i}", a=np.ones(4))
+            likelihood = pm.Multinomial(f"likelihood_class_{i}", n=total_count, p=prior, observed=observed_cms[i].numpy())
+    return model
+
+
+def build_hyperprior_model(observed_cms: List[BinaryCM]):
+    """Build the hierarchical model with the hyperprior."""
+
+    # Compute the number of classes and the total count.
+    num_classes = len(observed_cms)
+    total_count = np.sum(observed_cms[0].numpy())
+
+    with pm.Model() as model:
+        # THIS DOES NOT SEEM TO WORK
+        # The hyperprior has 8 parameters.
+        # The prior over each of the 4 parameters describing the multinomial from which a confusion
+        # matrix is sampled is determined from two parameters sampled from the hyperprior, one from
+        # h_alpha and one from h_gamma.
+        #h_alpha = pm.Uniform("h_alpha", lower=0.0, upper=10, shape=4)
+        #h_gamma = pm.Uniform("h_gamma", lower=0.0, upper=10, shape=4)
+        # -----
+        hyperprior = pm.Uniform("hyperprior", lower=0.0, upper="100.", shape=4)
+    
+        # For each class, a prior is sampled from the hyperprior and a likelihood function is
+        # defined based on the observed confusion matrix.
+        class_priors = []
+        class_likelihoods = []
+        for i in range(num_classes):
+            #_prior = pm.Beta(f"_prior_class_{i}", alpha=h_alpha, beta=h_gamma, shape=4)
+            #prior = pm.Deterministic(f"prior_class_{i}", _prior/_prior.sum())
+            prior = pm.Dirichlet(f"prior_class_{i}", a=hyperprior)
+            likelihood = pm.Multinomial(f"likelihood_class_{i}", n=total_count, p=prior, observed=observed_cms[i].numpy())
+            class_priors.append(prior)
+            class_likelihoods.append(likelihood)
+
     return model
 
 
 
-
-
-
-def build_model(num_classes, total_count, observed_cm):
-
-    with pm.Model() as model:
-        # The model has 8 parameters: A hyperprior with 2 parameters for each model.
-# The final thing we want is to constrain t1, t2, t3, and t4 from a multinomial as precisely as possible.
-        h_alpha = pm.Uniform("h_1", lower=0.0, upper=100, shape=4)
-        h_gamma = pm.Uniform("h_2", lower=0.0, upper=100, shape=4)
+if __name__ == "__main__":
+    cm_path = CIFAR10Task.confusion_matrix_path()
+    cm = np.load(cm_path)
     
-        class_priors = []
-        class_likelihoods = []
-        for i in range(num_classes):
-            prior = pm.Beta(f"prior_class_{i}", alpha=h_alpha, beta=h_gamma, shape=4)
-            like = pm.Multinomial(f"likelihood_class_{i}", n=total_count, p=prior, observed=observed_cm[i])
-            class_priors.append(prior)
-            class_likelihoods.append(like)
+    binary_cms = []
+    for i in range(CIFAR10Task.num_classes()):
+        binary_cms.append(convert_to_binary(cm, i))
 
-        trace = pm.sample(100, tune=100, cores=4)
-        posterior_draws = pm.fast_sample_posterior_predictive(trace)
-        for p in posterior_draws:
-            print(posterior_draws[p])
+    print(binary_cms[0])
+    print(binary_cms[0].recall())
+    print(binary_cms[0].precision())
+    print(binary_cms[0].f1score())
+
+    model = build_hyperprior_model(binary_cms)
+    with model:
+        trace = pm.sample(draws=10000, cores=os.cpu_count())
+        #posterior_draws = pm.fast_sample_posterior_predictive(trace)
+        #for p in posterior_draws:
+        #    print(posterior_draws[p])
         #keys = [f"prior_class_{i}" for i in range(num_classes)]
         #posterior_draws = {k:[] for k in keys}
 
-        #for draw in trace:
-        #    for k in keys:
-        #        posterior_draws[k].append(draw[k])
-        #print(posterior_draws)
-
-    #print(model.basic_RVs)
-    #for i in range(10):
-    #    print("#"*60)
-    #print(model.free_RVs)
-    #for i in range(10):
-    #    print("#"*60)
-    #print(model.observed_RVs)
-
-
-        #trace = pm.sample(1000)
-        #print(trace)
-
-        #class_probabolities = pm.Multinomial(n=total_count, p=priors, shape=num_classs)
-        #priors = []
-        #for i in range(num_classes):
-        #    class_priors = []
-        #    for j in 4:
-        #        class_priors.append(pm.Beta(f"prior_{i}", alpha=h_1, beta=h_2))
-
-def sample_random_params():
-    t1 = np.random.uniform(0.0, 0.5)
-    t2 = np.random.uniform(0.0, 0.3)
-    t3 = np.random.uniform(0.0, 0.2)
-    t4 = 1.0 - t1 - t2 - t3
-    return np.array([t1, t2, t3, t4])
-    
-
-if __name__ == "__main__":
-    rp = random_performances()
-
-    num_classes = 10
-    total_count = 1000
-    random_cm = [np.random.multinomial(total_count, sample_random_params()) for _ in range(num_classes)]
-    model = build_model(num_classes=num_classes, total_count=total_count, observed_cm=random_cm)
-    
-    
