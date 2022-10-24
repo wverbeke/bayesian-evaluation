@@ -8,7 +8,9 @@ from load_datasets import load_fashionMNIST_data, load_CIFAR10_data, load_CIFAR1
 
 MODEL_DIRECTORY = "trained_models"
 EVAL_DIRECTORY = "confusion_matrices"
-DEVICE = ("cuda" if torch.cuda.is_available() else "cpu")
+DEVICE_CPU = "cpu"
+DEVICE_GPU = "cuda"
+DEVICE = (DEVICE_GPU if torch.cuda.is_available() else DEVICE_CPU)
 
 class DataTask:
 
@@ -32,7 +34,7 @@ class DataTask:
 
     @classmethod
     def confusion_matrix_path(cls):
-        cm_name = f"{cls.name()}_confusion_matrix.json"
+        cm_name = f"{cls.name()}_confusion_matrix.npy"
         return os.path.join(EVAL_DIRECTORY, cm_name)
 
     @staticmethod

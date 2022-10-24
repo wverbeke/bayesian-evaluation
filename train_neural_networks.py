@@ -129,5 +129,5 @@ def train_model(data_task: DataTask):
 if __name__ == '__main__':
     # Train all neural network models until convergence.
     for task in task_register:
-        print(f"Training task {task.__name__}")
+        print(f"Training task {task.name()}")
         train_model(task)
