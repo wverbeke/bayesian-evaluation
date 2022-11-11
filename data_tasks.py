@@ -18,6 +18,7 @@ class DataTask:
     @abstractmethod
     def num_classes():
         """Get the number of classes in the data set."""
+        raise NotImplementedError()
 
     @staticmethod
     @abstractmethod
@@ -26,6 +27,7 @@ class DataTask:
 
         This will determine the name of all output files from training and evaluation.
         """
+        raise NotImplementedError()
 
     @classmethod
     def model_path(cls):
@@ -41,11 +43,13 @@ class DataTask:
     @abstractmethod
     def _build_model():
         """Build the neural network solving the task."""
+        raise NotImplementedError()
 
     @staticmethod
     @abstractmethod
     def load_data():
         """Return the training and evaluation data loaders."""
+        raise NotImplementedError()
 
     @classmethod
     def build_model(cls):
