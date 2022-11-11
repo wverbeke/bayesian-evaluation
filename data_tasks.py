@@ -4,7 +4,8 @@ from abc import abstractmethod
 import torch
 
 from build_neural_networks import Resnet18, SimpleCNN, Classifier
-from load_datasets import load_fashionMNIST_data, load_CIFAR10_data, load_CIFAR100_data, load_GTSRB_data
+#from load_datasets import load_fashionMNIST_data, load_CIFAR10_data, load_CIFAR100_data, load_GTSRB_data
+from load_datasets import FashionMNISTLoader, CIFAR10Loader, CIFAR100Loader, GTSRBLoader
 
 MODEL_DIRECTORY = "trained_models"
 EVAL_DIRECTORY = "confusion_matrices"
@@ -16,9 +17,18 @@ class DataTask:
 
     @staticmethod
     @abstractmethod
-    def num_classes():
-        """Get the number of classes in the data set."""
+    def data_loader():
+        """Get the data loader class for this task."""
         raise NotImplementedError()
+
+    @classmethod
+    def classes(cls):
+        return cls.data_loader().classes()
+
+    @classmethod
+    def num_classes(cls):
+        """Get the number of classes in the data set."""
+        return len(cls.classes())
 
     @staticmethod
     @abstractmethod
@@ -40,16 +50,16 @@ class DataTask:
         return os.path.join(EVAL_DIRECTORY, cm_name)
 
     @staticmethod
-    @abstractmethod
     def _build_model():
         """Build the neural network solving the task."""
-        raise NotImplementedError()
+        return Resnet18(in_channels=3)
 
-    @staticmethod
-    @abstractmethod
-    def load_data():
+    @classmethod
+    def load_data(cls):
         """Return the training and evaluation data loaders."""
-        raise NotImplementedError()
+        train_loader = cls.data_loader().train_loader()
+        eval_loader = cls.data_loader().eval_loader()
+        return train_loader, eval_loader
 
     @classmethod
     def build_model(cls):
@@ -68,6 +78,8 @@ class DataTask:
         return model
 
 
+# Register all the individual data sets and their training/evaluatin tasks.
+# This makes it easy to train all models in a loop later on and collect the results.
 task_register = []
 def register_task(cls):
     task_register.append(cls)
@@ -77,65 +89,43 @@ def register_task(cls):
 @register_task
 class FashionMNISTTask(DataTask):
 
-    def num_classes():
-        return 10
+    def data_loader():
+        return FashionMNISTLoader
 
     def name():
         return "fashionMNIST"
 
+    # The model should be overriden for FashionMNIST because of the number of input channels.
+    # We also use a simpler model for this small data set than a ResNet.
     def _build_model():
         return SimpleCNN(in_channels=1)
-
-    def load_data():
-        return load_fashionMNIST_data()
-
 
 
 @register_task
 class CIFAR10Task(DataTask):
 
-    def num_classes():
-        return 10
+    def data_loader():
+        return CIFAR10Loader
 
     def name():
         return "CIFAR10"
-
-    def _build_model():
-        return Resnet18(in_channels=3)
-
-    def load_data():
-        return load_CIFAR10_data()
-
 
 
 @register_task
 class CIFAR100Task(DataTask):
 
-    def num_classes():
-        return 100
+    def data_loader():
+        return CIFAR10Loader
 
     def name():
         return "CIFAR100"
-
-    def _build_model():
-        return Resnet18(in_channels=3)
-
-    def load_data():
-        return load_CIFAR100_data()
-
 
 
 @register_task
 class GTSRBTask(DataTask):
 
-    def num_classes():
-        return 43
+    def data_loader():
+        return GTSRBLoader
 
     def name():
         return "GTSRB"
-
-    def _build_model():
-        return Resnet18(in_channels=3)
-
-    def load_data():
-        return load_GTSRB_data()
