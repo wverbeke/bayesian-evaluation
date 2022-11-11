@@ -15,6 +15,10 @@ class BinaryCM:
         self._fn = fn
         self._tn = tn
 
+    @staticmethod
+    def from_array(array):
+        return BinaryCM(*tuple(array))
+
     @property
     def tp(self):
         return self._tp

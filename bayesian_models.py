@@ -12,9 +12,11 @@ import os
 
 import numpy as np
 import pymc as pm
+import xarray as xr
 
 from confusion_matrix import BinaryCM, convert_to_binary
-from data_tasks import CIFAR10Task
+from data_tasks import CIFAR10Task, GTSRBTask
+
 
 
 def build_simple_model(observed_cms: List[BinaryCM]):
@@ -23,12 +25,6 @@ def build_simple_model(observed_cms: List[BinaryCM]):
     # Compute the number of classes and the total count.
     num_classes = len(observed_cms)
     total_count = np.sum(observed_cms[0].numpy())
-
-    print(f"total_count = {total_count}")
-    print(f"num_classes = {num_classes}")
-    for c in observed_cms:
-        print(c.numpy())
-        print(np.sum(c.numpy()))
 
     with pm.Model() as model:
         for i in range(num_classes):
@@ -72,23 +68,87 @@ def build_hyperprior_model(observed_cms: List[BinaryCM]):
     return model
 
 
+def compute_recall(cm_array):
+    tp_array = cm_array[:, 0]
+    fn_array = cm_array[:, 2]
+    return tp_array/(tp_array + fn_array)
+
+
+def compute_precision(cm_array):
+    tp_array = cm_array[:, 0]
+    fp_array = cm_array[:, 1]
+    return tp_array/(tp_array + fp_array)
+
+
+def draw_posterior_metrics(trace, model):
+    print("crash 1")
+    with model:
+        print("crash 1.1")
+        predictive_samples = pm.sample_posterior_predictive(trace)
+    print("crash 2")
+    #print(predictive_samples)
+    #print(predictive_samples.posterior_predictive.likelihood_class_0)
+    #print(predictive_samples.observed_data)
+    sample_array = predictive_samples.posterior_predictive.likelihood_class_40
+    recalls = []
+    for chain_index in range(len(sample_array)):
+        recalls.append(compute_recall(sample_array[chain_index]))
+    recalls = np.concatenate(recalls)
+    return recalls
+
+
+
+from plot_metrics import plot_posterior_comparison
 
 if __name__ == "__main__":
-    cm_path = CIFAR10Task.confusion_matrix_path()
+    #cm_path = CIFAR10Task.confusion_matrix_path()
+    cm_path = GTSRBTask.confusion_matrix_path()
     cm = np.load(cm_path)
     
     binary_cms = []
-    for i in range(CIFAR10Task.num_classes()):
+    for i in range(len(cm)):
         binary_cms.append(convert_to_binary(cm, i))
 
-    print(binary_cms[0])
-    print(binary_cms[0].recall())
-    print(binary_cms[0].precision())
-    print(binary_cms[0].f1score())
+    #print(binary_cms[0])
+    #print(binary_cms[0].recall())
+    #print(binary_cms[0].precision())
+    #print(binary_cms[0].f1score())
 
-    model = build_hyperprior_model(binary_cms)
-    with model:
-        trace = pm.sample(draws=10000, cores=os.cpu_count())
+    print("Building hyperprior model.")
+    hyperprior_model = build_hyperprior_model(binary_cms)
+    with hyperprior_model:
+        trace = pm.sample(draws=100, cores=os.cpu_count())
+    trace.posterior.to_netcdf("hyperprior_trace.cdf") 
+
+    print("Building simple model.")
+    simple_model = build_simple_model(binary_cms)
+    with simple_model:
+        trace = pm.sample(draws=100, cores=os.cpu_count())
+    trace.posterior.to_netcdf("simple_trace.cdf") 
+
+    # load trace file 
+    print("Opening hyperprior trace.")
+    hyperprior_trace = xr.open_dataset("hyperprior_trace.cdf")
+
+    print("Opening simple trace.")
+    simple_trace = xr.open_dataset("simple_trace.cdf")
+    #print(disk_trace.hyperprior)
+
+    print("Drawing hyperprior metrics.")
+    hyperprior_recalls = draw_posterior_metrics(hyperprior_trace, hyperprior_model)
+
+    print("Drawing simple metrics.")
+    simple_recalls = draw_posterior_metrics(simple_trace, simple_model)
+
+    print("Plotting.")
+    plot_posterior_comparison(hyperprior_recalls, simple_recalls)
+
+
+    #print(trace)
+    #print(trace.posterior)
+    #print(trace.posterior.hyperprior)
+    #print(trace.sample_stats)
+
         #posterior_draws = pm.fast_sample_posterior_predictive(trace)
         #for p in posterior_draws:
         #    print(posterior_draws[p])
