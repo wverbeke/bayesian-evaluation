@@ -7,13 +7,14 @@ import torch
 from torch.utils.data import DataLoader
 from torchvision import datasets, transforms
 
-_DATA_KWARGS = {"root": "datasets", "download": True}
+_DATASET_KWARGS = {"root": "datasets", "download": True}
 _SHARED_TRANSFORMS = transforms.Compose([transforms.ToTensor(), transforms.Lambda(lambda x : x/255.)])
+_DATALOADER_KWARGS = {"num_workers": os.cpu_count(), prefetch_factor=4}
 
 
 def _build_data_loader(dataset: Callable, train: bool, transforms: Callable, batch_size: int):
-    data = dataset(train=True, transform=transforms, **_DATA_KWARGS)
-    return DataLoader(data, batch_size=batch_size, num_workers=os.cpu_count(), shuffle=train, drop_last=True)
+    data = dataset(train=True, transform=transforms, **_DATASET_KWARGS)
+    return DataLoader(data, batch_size=batch_size, shuffle=train, drop_last=True, **_DATALOADER_KWARGS)
 
 
 class Dataset:
@@ -150,9 +151,9 @@ class GTSRBLoader(Dataset):
 
     # For GTSRB the data loading methods must be overridden because the interface is different.
     def train_loader(cls):
-        train_data = datasets.GTSRB(split="train", transform=cls.train_transforms(), **_DATA_KWARGS)
-        return DataLoader(train_data, batch_size=256, num_workers=os.cpu_count(), shuffle=True, drop_last=True)
+        train_data = datasets.GTSRB(split="train", transform=cls.train_transforms(), **_DATASET_KWARGS)
+        return DataLoader(train_data, batch_size=256, shuffle=True, drop_last=True, **_DATALOADER_KWARGS)
 
     def eval_loader(cls):
-        eval_data = datasets.GTSRB(split="test", transform=cls.eval_transforms(), **_DATA_KWARGS)
-        return DataLoader(eval_data, batch_size=1024, num_workers=os.cpu_count(), shuffle=False, drop_last=False)
+        eval_data = datasets.GTSRB(split="test", transform=cls.eval_transforms(), **_DATASET_KWARGS)
+        return DataLoader(eval_data, batch_size=1024, shuffle=False, drop_last=False, **_DATALOADER_KWARGS)
