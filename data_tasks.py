@@ -80,9 +80,9 @@ class DataTask:
 
 # Register all the individual data sets and their training/evaluatin tasks.
 # This makes it easy to train all models in a loop later on and collect the results.
-task_register = []
+TASK_REGISTER = []
 def register_task(cls):
-    task_register.append(cls)
+    TASK_REGISTER.append(cls)
     return cls
 
 

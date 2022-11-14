@@ -8,7 +8,7 @@ import torch
 from torch import nn
 
 from build_neural_networks import SimpleCNN, Classifier
-from data_tasks import MODEL_DIRECTORY, DEVICE, DataTask, task_register
+from data_tasks import MODEL_DIRECTORY, DEVICE, DataTask, TASK_REGISTER
 
 class ModelTrainer:
 
@@ -133,6 +133,6 @@ def train_model(data_task: DataTask):
 
 if __name__ == '__main__':
     # Train all neural network models until convergence.
-    for task in task_register:
+    for task in TASK_REGISTER:
         print(f"Training task {task.name()}")
         train_model(task)
