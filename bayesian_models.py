@@ -17,6 +17,12 @@ import xarray as xr
 from confusion_matrix import BinaryCM, convert_to_binary
 from data_tasks import CIFAR10Task, GTSRBTask
 
+def _prior_name(class_index):
+    return f"prior_class_{class_index}"
+
+
+def _likelihood_name(class_index):
+    return f"likelihood_class_{class_index}"
 
 
 def build_simple_model(observed_cms: List[BinaryCM]):
@@ -27,41 +33,37 @@ def build_simple_model(observed_cms: List[BinaryCM]):
     total_count = np.sum(observed_cms[0].numpy())
 
     with pm.Model() as model:
-        for i in range(num_classes):
+        for class_index in range(num_classes):
             # A confusion matrix has 4 entries so we need 4 priors.
             #prior = pm.Uniform(f"prior_class_{i}", lower=0.0, upper=1.0, shape=4)
-            prior = pm.Dirichlet(f"prior_class_{i}", a=np.ones(4))
-            likelihood = pm.Multinomial(f"likelihood_class_{i}", n=total_count, p=prior, observed=observed_cms[i].numpy())
+            prior = pm.Dirichlet(_prior_name(class_index), a=np.ones(4))
+            likelihood = pm.Multinomial(_likelihood_name(class_index), n=total_count, p=prior, observed=observed_cms[i].numpy())
     return model
 
 
-def build_hyperprior_model(observed_cms: List[BinaryCM]):
-    """Build the hierarchical model with the hyperprior."""
+def build_dirichlet_hyperprior_model(observed_cms: List[BinaryCM]):
+    """Build the hierarchical model with the hyperprior.
+
+    A dirichlet distribution yields values that sum to one, which is a property the (hyperprior) for
+    a model with a multinomial likelihood must have since the parameters of a multinomial sum to 1.
+    """
 
     # Compute the number of classes and the total count.
     num_classes = len(observed_cms)
     total_count = np.sum(observed_cms[0].numpy())
 
     with pm.Model() as model:
-        # THIS DOES NOT SEEM TO WORK
-        # The hyperprior has 8 parameters.
         # The prior over each of the 4 parameters describing the multinomial from which a confusion
-        # matrix is sampled is determined from two parameters sampled from the hyperprior, one from
-        # h_alpha and one from h_gamma.
-        #h_alpha = pm.Uniform("h_alpha", lower=0.0, upper=10, shape=4)
-        #h_gamma = pm.Uniform("h_gamma", lower=0.0, upper=10, shape=4)
-        # -----
+        # matrix is sampled is a dirichlet distribution whose parameters are samples from the hyperprior.
         hyperprior = pm.Uniform("hyperprior", lower=0.0, upper="100.", shape=4)
     
         # For each class, a prior is sampled from the hyperprior and a likelihood function is
         # defined based on the observed confusion matrix.
         class_priors = []
         class_likelihoods = []
-        for i in range(num_classes):
-            #_prior = pm.Beta(f"_prior_class_{i}", alpha=h_alpha, beta=h_gamma, shape=4)
-            #prior = pm.Deterministic(f"prior_class_{i}", _prior/_prior.sum())
-            prior = pm.Dirichlet(f"prior_class_{i}", a=hyperprior)
-            likelihood = pm.Multinomial(f"likelihood_class_{i}", n=total_count, p=prior, observed=observed_cms[i].numpy())
+        for class_index in range(num_classes):
+            prior = pm.Dirichlet(_prior_name(class_index), a=hyperprior)
+            likelihood = pm.Multinomial(_likelihood_name(class_index), n=total_count, p=prior, observed=observed_cms[i].numpy())
             class_priors.append(prior)
             class_likelihoods.append(likelihood)
 
@@ -69,26 +71,22 @@ def build_hyperprior_model(observed_cms: List[BinaryCM]):
 
 
 def compute_recall(cm_array):
+    """Compute the recalls for an array of sampled confusion matrices."""
     tp_array = cm_array[:, 0]
     fn_array = cm_array[:, 2]
     return tp_array/(tp_array + fn_array)
 
 
 def compute_precision(cm_array):
+    """Compute the precisions for an array of sampled confusion matrices."""
     tp_array = cm_array[:, 0]
     fp_array = cm_array[:, 1]
     return tp_array/(tp_array + fp_array)
 
 
 def draw_posterior_metrics(trace, model):
-    print("crash 1")
     with model:
-        print("crash 1.1")
         predictive_samples = pm.sample_posterior_predictive(trace)
-    print("crash 2")
-    #print(predictive_samples)
-    #print(predictive_samples.posterior_predictive.likelihood_class_0)
-    #print(predictive_samples.observed_data)
     sample_array = predictive_samples.posterior_predictive.likelihood_class_40
     recalls = []
     for chain_index in range(len(sample_array)):
@@ -101,18 +99,12 @@ def draw_posterior_metrics(trace, model):
 from plot_metrics import plot_posterior_comparison
 
 if __name__ == "__main__":
-    #cm_path = CIFAR10Task.confusion_matrix_path()
     cm_path = GTSRBTask.confusion_matrix_path()
     cm = np.load(cm_path)
     
     binary_cms = []
     for i in range(len(cm)):
         binary_cms.append(convert_to_binary(cm, i))
-
-    #print(binary_cms[0])
-    #print(binary_cms[0].recall())
-    #print(binary_cms[0].precision())
-    #print(binary_cms[0].f1score())
 
     print("Building hyperprior model.")
     hyperprior_model = build_hyperprior_model(binary_cms)
@@ -142,16 +134,3 @@ if __name__ == "__main__":
 
     print("Plotting.")
     plot_posterior_comparison(hyperprior_recalls, simple_recalls)
-
-
-    #print(trace)
-    #print(trace.posterior)
-    #print(trace.posterior.hyperprior)
-    #print(trace.sample_stats)
-
-        #posterior_draws = pm.fast_sample_posterior_predictive(trace)
-        #for p in posterior_draws:
-        #    print(posterior_draws[p])
-        #keys = [f"prior_class_{i}" for i in range(num_classes)]
-        #posterior_draws = {k:[] for k in keys}
-

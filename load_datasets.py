@@ -9,7 +9,7 @@ from torchvision import datasets, transforms
 
 _DATASET_KWARGS = {"root": "datasets", "download": True}
 _SHARED_TRANSFORMS = transforms.Compose([transforms.ToTensor(), transforms.Lambda(lambda x : x/255.)])
-_DATALOADER_KWARGS = {"num_workers": os.cpu_count(), prefetch_factor=4}
+_DATALOADER_KWARGS = {"num_workers": os.cpu_count(), "prefetch_factor": 4}
 
 
 def _build_data_loader(dataset: Callable, train: bool, transforms: Callable, batch_size: int):
@@ -150,10 +150,16 @@ class GTSRBLoader(Dataset):
         return 256
 
     # For GTSRB the data loading methods must be overridden because the interface is different.
+    @classmethod
     def train_loader(cls):
         train_data = datasets.GTSRB(split="train", transform=cls.train_transforms(), **_DATASET_KWARGS)
         return DataLoader(train_data, batch_size=256, shuffle=True, drop_last=True, **_DATALOADER_KWARGS)
 
+    @classmethod
     def eval_loader(cls):
         eval_data = datasets.GTSRB(split="test", transform=cls.eval_transforms(), **_DATASET_KWARGS)
         return DataLoader(eval_data, batch_size=1024, shuffle=False, drop_last=False, **_DATALOADER_KWARGS)
+
+    @classmethod
+    def classes(cls):
+        return ["speed_limit_20", "speed_limit_30", "speed_limit_50", "speed_limit_60", "speed_limit_70", "speed_limit_80", "end_of_speed_limit_80", "speed_limit_100", "speed_limit_120", "no_passing", "no_passing_over_3p5_tons", "priority_next_intersection", "priority_road", "yield", "stop", "no_vehicles", "no_vehicles_over_3p5_tons", "no_entry", "caution", "dangerous_curve_left", "dangerous_curve_right", "double_curve", "bumpy_road", "slippery_road", "road_narrows_right", "road_works", "traffic_signals", "pedestrians", "children_crossing", "bicycles_crossing", "ice_snow", "wild_animals", "end_of_all", "turn_right_ahead", "turn_left_ahead", "proceed_ahead", "proceed_ahead_or_right", "proceed_ahead_or_left", "proceed_right", "proceed_left", "roundabout", "end_of_no_passing", "end_of_no_passing_over_3p5_tons"]
