@@ -54,13 +54,18 @@ class ModelTrainer:
     def eval_epoch(self, dataloader):
         """A single evaluation epoch."""
         self._model.eval()
+
+        # Note that the last batch might be smaller than the rest, so it is better to count the
+        # number of individual samples.
+        num_samples = 0
         total_eval_loss = 0
-        num_batches = len(dataloader)
         with torch.no_grad():
             for x_batch, y_batch in tqdm(dataloader):
                 loss = self.eval_step(x_batch, y_batch)
-                total_eval_loss += loss.item()
-        avg_eval_loss = total_eval_loss/num_batches
+                num_samples += len(y_batch)
+                total_eval_loss += loss.item()*len(y_batch)
+
+        avg_eval_loss = total_eval_loss/num_samples
         return avg_eval_loss
 
     def train_and_eval_epoch(self, train_loader, eval_loader):
