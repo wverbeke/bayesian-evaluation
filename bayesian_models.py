@@ -17,7 +17,7 @@ import xarray as xr
 
 from confusion_matrix import BinaryCM, convert_to_binary
 from data_tasks import TASK_REGISTER, DataTask
-from plot_metrics import plot_posterior_metrics, plot_posterior_comparison
+from plot_metrics import plot_posterior_comparison
 
 TRACE_DIRECTORY="mc_traces"
 POSTERIOR_DIRECTORY="posterior_samples"
