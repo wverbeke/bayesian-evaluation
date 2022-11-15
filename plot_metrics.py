@@ -1,6 +1,9 @@
+import os
+
 import matplotlib.pyplot as plt
 import numpy as np
 
+PLOT_DIRECTORY="plots"
 
 
 def plot_posterior_metrics(bayesian_models):

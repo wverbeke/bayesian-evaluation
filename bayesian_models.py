@@ -21,7 +21,6 @@ from plot_metrics import plot_posterior_metrics, plot_posterior_comparison
 
 TRACE_DIRECTORY="mc_traces"
 POSTERIOR_DIRECTORY="posterior_samples"
-PLOT_DIRECTORY="plots"
 
 
 def compute_recalls(cm_array: np.ndarray) -> np.ndarray:
