@@ -245,20 +245,14 @@ def plot_posterior_metrics(bayesian_models):
 
 
 if __name__ == "__main__":
-    task = CIFAR10Task
-    simple_model = SimpleModel(task)
-    #trace = simple_model.trace(num_samples_per_core=1000)
-    #simple_model.sample_posterior_predictive(trace)
-    hyperprior_model = DirichletHyperpriorModel(task)
-    #trace = hyperprior_model.trace(num_samples_per_core=1000)
-    #hyperprior_model.sample_posterior_predictive(trace)
-
-    models = [simple_model, hyperprior_model]
-    plot_posterior_metrics(models)
-
-
-    #for task in TASK_REGISTER:
-    #    for model_class in BAYESIAN_MODEL_REGISTER:
-    #        bm = model_class(task)
-    #        bm.trace(num_samples_per_core=2000)
-    #        bm
+    for task in TASK_REGISTER:
+        b_models = []
+        for model_class in BAYESIAN_MODEL_REGISTER:
+            bm = model_class(task)
+            b_models.append(bm)
+            if not bm.trace_exists():
+                trace = bm.trace(num_samples_per_core=2000)
+                bm.sample_posterior_predictive(trace)
+            elif not bm.posterior_samples_exist():
+                bm.sample_posterior_predictive(bm.load_trace())
+        plot_posterior_metrics(models)
