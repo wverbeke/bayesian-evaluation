@@ -260,4 +260,4 @@ if __name__ == "__main__":
                 bm.sample_posterior_predictive(trace)
             elif not bm.posterior_samples_exist():
                 bm.sample_posterior_predictive(bm.load_trace())
-        plot_posterior_metrics(models)
+        plot_posterior_metrics(b_models)
