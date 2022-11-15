@@ -63,6 +63,9 @@ class BayesianModel:
             binary_cms.append(binary_cm)
         self._model = self.build_model(observed_cms=binary_cms)
 
+    @property
+    def data_task(self):
+        return self._data_task
 
     def trace_file_path(self):
         return os.path.join(TRACE_DIRECTORY, f"trace_{self.name()}_{self._data_task.name()}.cdf")
@@ -96,12 +99,17 @@ class BayesianModel:
         
         return trace
 
+
+    def load_trace(self):
+        return xr.open_dataset(self.trace_file_path())
+
+
     def sample_posterior_predictive(self, trace):
         os.makedirs(POSTERIOR_DIRECTORY, exist_ok=True)
         with self._model:
             posterior_samples = pm.sample_posterior_predictive(trace)
         sampled_cm_arrays = []
-        for class_index in range(self._data_task.num_classes()):
+        for class_index in range(self.data_task.num_classes()):
             likelihood_name = _likelihood_name(class_index)
             sampled_cm_chains = getattr(posterior_samples.posterior_predictive, likelihood_name)
             sampled_cm_array = np.concatenate(sampled_cm_chains, axis=0)
@@ -109,65 +117,24 @@ class BayesianModel:
             np.save(self.posterior_file_path(class_index), sampled_cm_array)
         return sampled_cm_arrays
 
-    def classes(self):
-        return self._data_task.classes()
-
-    def num_classes(self):
-        return self._data_task.num_classes()
 
     def load_posterior_samples(self, class_index=None):
         if class_index is None:
             sampled_cm_arrays = []
-            for class_index in range(self.num_classes()):
+            for class_index in range(self.data_task.num_classes()):
                 sampled_cm_array = np.load(self.posterior_file_path(class_index))
                 sampled_cm_arrays.append(sampled_cm_array)
             return sampled_cm_arrays
         else:
             return np.load(self.posterior_file_path(class_index))
 
+
     def trace_exists(self):
         return os.path.isfile(self.trace_file_path())
 
+
     def posterior_samples_exist(self):
-        return all(os.path.isfile(self.posterior_file_path(class_index)) for class_index in range(self.num_classes()))
-
-
-    #def evaluate_model(self, num_samples_per_core, use_existing_trace=False, use_existing_posterior_samples=False):
-
-    #    # Check that samples exist for all classes when using an existing set of posterior samples.
-    #    if not all(os.path.isfile(self.posterior_file_path(class_index)) for class_index in range(self._data_task.num_classes)):
-    #        use_existing_posterior_samples = False
-    #    if use_existing_posterior_samples:
-    #        use_existing_trace = True
-    #    else:
-    #        if not os.path.isfile(self.trace_file_path()):
-    #            use_existing_trace = False
-
-    #    if not use_existing_trace:
-    #        trace = self.trace(num_samples_per_core=num_samples_per_core)
-    #    # Should not even be loaded if we already have posterior samples.
-    #    else:
-    #        trace = xr.open_dataset(self.trace_file_path())
-
-    #    if use_existing_posterior_samples:
-    #        sampled_cm_arrays = self._load_posterior_samples()
-    #    else:
-    #        sampled_cm_arrays = self.sample_posterior_predictive(trace)
-    #        sampled_cm_arrays = self.sample_posterior_predictive(trace)
-    #    if not 
-
-
-
-    #def plot_metric_posteriors(self, sampled_cm_arrays):
-    #    for class_index, cm_array in enumerate(sampled_cm_arrays):
-    #        recalls = compute_recalls(cm_array)
-    #        precisions = compute_precisions(cm_array)
-    #sample_array = predictive_samples.posterior_predictive.likelihood_class_40
-    #recalls = []
-    #for chain_index in range(len(sample_array)):
-    #    recalls.append(compute_recall(sample_array[chain_index]))
-    #recalls = np.concatenate(recalls)
-    #return recalls
+        return all(os.path.isfile(self.posterior_file_path(class_index)) for class_index in range(self.data_task.num_classes()))
 
         
 @register_bayesian_model
@@ -176,6 +143,7 @@ class SimpleModel(BayesianModel):
     @classmethod
     def name(cls):
         return "simple_model"
+
 
     @classmethod
     def build_model(cls, observed_cms: List[BinaryCM]):
@@ -199,6 +167,7 @@ class DirichletHyperpriorModel(BayesianModel):
     @classmethod
     def name(cls):
         return "dirichlet_hyperprior_model"
+
 
     @classmethod
     def build_model(cls, observed_cms: List[BinaryCM]):
@@ -235,8 +204,8 @@ def plot_posterior_metrics(bayesian_models):
         raise ValueError("There should be at least two Bayesian models to compared.")
 
     # Verify that all Bayesian models have the same classes and can be compared.
-    classes = bayesian_models[0].classes()
-    if not all((b.classes() == classes) for b in bayesian_models[1:]):
+    classes = bayesian_models[0].data_task.classes()
+    if not all((b.data_task.classes() == classes) for b in bayesian_models[1:]):
         raise ValueError("All Bayesian models being compared should have the same list of classes.")
 
     # Verify that all posterior samples exist.
@@ -246,6 +215,7 @@ def plot_posterior_metrics(bayesian_models):
     os.makedirs(PLOT_DIRECTORY, exist_ok=True)
 
     model_names = [b.name() for b in bayesian_models]
+    task_name = bayesian_models[0].data_task.name()
 
     for class_index, class_name in enumerate(classes):
         recall_arrays = []
@@ -256,8 +226,22 @@ def plot_posterior_metrics(bayesian_models):
             recall_arrays.append(recall_array)
             precision_array = compute_precisions(cm_array)
             precision_arrays.append(precision_array)
-        plot_posterior_comparison(model_posteriors=recall_arrays, model_names=model_names, plot_path=os.path.join(PLOT_DIRECTORY, f"recall_class_{class_index}"), metric_name="Recall", class_name = classes[class_index])
-        plot_posterior_comparison(model_posteriors=precision_arrays, model_names=model_names, plot_path=os.path.join(PLOT_DIRECTORY, f"precision_class_{class_index}"), metric_name="Precision", class_name = class_name)
+        plot_posterior_comparison(
+            model_posteriors=recall_arrays,
+            model_names=model_names,
+            plot_path=os.path.join(PLOT_DIRECTORY, f"{task_name}_recall_class_{class_index}"),
+            metric_name="Recall",
+            task_name=task_name,
+            class_name=classes[class_index]
+        )
+        plot_posterior_comparison(
+            model_posteriors=precision_arrays,
+            model_names=model_names,
+            plot_path=os.path.join(PLOT_DIRECTORY, f"{task_name}_precision_class_{class_index}"),
+            metric_name="Precision",
+            task_name=task_name,
+            class_name=class_name
+        )
 
 
 if __name__ == "__main__":

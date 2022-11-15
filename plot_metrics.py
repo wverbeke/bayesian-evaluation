@@ -1,7 +1,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
 
-def plot_posterior_comparison(model_posteriors, model_names, plot_path, metric_name, class_name, num_class_samples = None, num_bins: int = 40):
+def plot_posterior_comparison(model_posteriors, model_names, plot_path, metric_name, task_name, class_name, num_class_samples = None, num_bins: int = 40):
 
     if len(model_posteriors) != len(model_names):
         raise ValueError("Each posterior should have a corresponding name.")
@@ -15,7 +15,7 @@ def plot_posterior_comparison(model_posteriors, model_names, plot_path, metric_n
     plt.xlabel(metric_name)
     plt.ylabel("Number of samples")
     plt.legend()
-    plt.title(class_name)
+    plt.title(f"{task_name}: {class_name}")
 
     if not "." in plot_path:
         plt.savefig(plot_path + ".pdf")
