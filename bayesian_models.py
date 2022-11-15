@@ -48,7 +48,7 @@ def compute_precisions(cm_array):
 BAYESIAN_MODEL_REGISTER = []
 def register_bayesian_model(cls):
     BAYESIAN_MODEL_REGISTER.append(cls)
-    return func
+    return cls
 
 
 class BayesianModel:
@@ -109,13 +109,27 @@ class BayesianModel:
             np.save(self.posterior_file_path(class_index), sampled_cm_array)
         return sampled_cm_arrays
 
+    def classes(self):
+        return self._data_task.classes()
 
-    def _load_posterior_samples(self):
-        sampled_cm_arrays = []
-        for class_index in range(self._data_task.num_classes()):
-            sampled_cm_array = np.load(self.posterior_file_path(class_index))
-            sampled_cm_arrays.append(sampled_cm_array)
-        return sampled_cm_arrays
+    def num_classes(self):
+        return self._data_task.num_classes()
+
+    def load_posterior_samples(self, class_index=None):
+        if class_index is None:
+            sampled_cm_arrays = []
+            for class_index in range(self.num_classes()):
+                sampled_cm_array = np.load(self.posterior_file_path(class_index))
+                sampled_cm_arrays.append(sampled_cm_array)
+            return sampled_cm_arrays
+        else:
+            return np.load(self.posterior_file_path(class_index))
+
+    def trace_exists(self):
+        return os.path.isfile(self.trace_file_path())
+
+    def posterior_samples_exist(self):
+        return all(os.path.isfile(self.posterior_file_path(class_index)) for class_index in range(self.num_classes()))
 
 
     #def evaluate_model(self, num_samples_per_core, use_existing_trace=False, use_existing_posterior_samples=False):
@@ -155,7 +169,7 @@ class BayesianModel:
     #recalls = np.concatenate(recalls)
     #return recalls
 
-
+        
 @register_bayesian_model
 class SimpleModel(BayesianModel):
 
@@ -216,10 +230,51 @@ class DirichletHyperpriorModel(BayesianModel):
         return model
 
 
+def plot_posterior_metrics(bayesian_models):
+    if len(bayesian_models) < 2:
+        raise ValueError("There should be at least two Bayesian models to compared.")
+
+    # Verify that all Bayesian models have the same classes and can be compared.
+    classes = bayesian_models[0].classes()
+    if not all((b.classes() == classes) for b in bayesian_models[1:]):
+        raise ValueError("All Bayesian models being compared should have the same list of classes.")
+
+    # Verify that all posterior samples exist.
+    if not all(b.posterior_samples_exist() for b in bayesian_models):
+        raise ValueError("Can only plot the posterior distributions for the metrics when the posterior samples are available.")
+
+    os.makedirs(PLOT_DIRECTORY, exist_ok=True)
+
+    model_names = [b.name() for b in bayesian_models]
+
+    for class_index, class_name in enumerate(classes):
+        recall_arrays = []
+        precision_arrays = []
+        for b in bayesian_models:
+            cm_array = b.load_posterior_samples(class_index=class_index)
+            recall_array = compute_recalls(cm_array)
+            recall_arrays.append(recall_array)
+            precision_array = compute_precisions(cm_array)
+            precision_arrays.append(precision_array)
+        plot_posterior_comparison(model_posteriors=recall_arrays, model_names=model_names, plot_path=os.path.join(PLOT_DIRECTORY, f"recall_class_{class_index}"), metric_name="Recall", class_name = classes[class_index])
+        plot_posterior_comparison(model_posteriors=precision_arrays, model_names=model_names, plot_path=os.path.join(PLOT_DIRECTORY, f"precision_class_{class_index}"), metric_name="Precision", class_name = class_name)
+
 
 if __name__ == "__main__":
-    for task in TASK_REGISTER:
-        for model_class in BAYESIAN_MODEL_REGISTER:
-            bm = model_class(task)
-            bm.trace(num_samples_per_core=2000)
-            bm
+    task = CIFAR10Task
+    simple_model = SimpleModel(task)
+    #trace = simple_model.trace(num_samples_per_core=1000)
+    #simple_model.sample_posterior_predictive(trace)
+    hyperprior_model = DirichletHyperpriorModel(task)
+    #trace = hyperprior_model.trace(num_samples_per_core=1000)
+    #hyperprior_model.sample_posterior_predictive(trace)
+
+    models = [simple_model, hyperprior_model]
+    plot_posterior_metrics(models)
+
+
+    #for task in TASK_REGISTER:
+    #    for model_class in BAYESIAN_MODEL_REGISTER:
+    #        bm = model_class(task)
+    #        bm.trace(num_samples_per_core=2000)
+    #        bm

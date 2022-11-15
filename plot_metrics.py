@@ -1,16 +1,23 @@
 import matplotlib.pyplot as plt
 import numpy as np
 
-def plot_posterior_comparison(samples_lhs, samples_rhs, num_bins: int = 40):
-#def plot_posterior_comparison(samples_lhs, num_bins: int = 40):
+def plot_posterior_comparison(model_posteriors, model_names, plot_path, metric_name, class_name, num_class_samples = None, num_bins: int = 40):
 
-    # Get the binning
-    _, bins = np.histogram(np.hstack([samples_lhs, samples_rhs]), bins=num_bins)
-    plt.hist(samples_lhs, bins=bins, color="blue", histtype="step", label="hyperprior")
-    plt.hist(samples_rhs, bins=bins, color="red", histtype="step", label="simple model")
-    plt.xlabel("Recall")
+    if len(model_posteriors) != len(model_names):
+        raise ValueError("Each posterior should have a corresponding name.")
+
+    # Get a good binning for the sum of all posteriors.
+    _, bins = np.histogram(np.hstack([*model_posteriors]), bins=num_bins)
+
+    # Plot the posteriors for each model.
+    for posterior, name in zip(model_posteriors, model_names):
+        plt.hist(posterior, bins=bins, histtype="step", label=name)
+    plt.xlabel(metric_name)
     plt.ylabel("Number of samples")
     plt.legend()
-    plt.show()
-    plt.savefig("test_plot.pdf")
-    #_, bins, _ = plt.hist(samples, histtype=)
+    plt.title(class_name)
+
+    if not "." in plot_path:
+        plt.savefig(plot_path + ".pdf")
+        plt.savefig(plot_path + ".png")
+    plt.clf()
