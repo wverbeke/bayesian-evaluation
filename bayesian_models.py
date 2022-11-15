@@ -21,6 +21,7 @@ from plot_metrics import plot_posterior_metrics, plot_posterior_comparison
 
 TRACE_DIRECTORY="mc_traces"
 POSTERIOR_DIRECTORY="posterior_samples"
+PLOT_DIRECTORY="plots"
 
 
 def compute_recalls(cm_array: np.ndarray) -> np.ndarray:
@@ -245,6 +246,50 @@ class DirichletHyperpriorModel(BayesianModel):
                 class_likelihoods.append(likelihood)
     
         return model
+
+def plot_posterior_metrics(bayesian_models):
+    if len(bayesian_models) < 2:
+        raise ValueError("There should be at least two Bayesian models to compared.")
+
+    # Verify that all Bayesian models have the same classes and can be compared.
+    classes = bayesian_models[0].data_task.classes()
+    if not all((b.data_task.classes() == classes) for b in bayesian_models[1:]):
+        raise ValueError("All Bayesian models being compared should have the same list of classes.")
+
+    # Verify that all posterior samples exist.
+    if not all(b.posterior_samples_exist() for b in bayesian_models):
+        raise ValueError("Can only plot the posterior distributions for the metrics when the posterior samples are available.")
+
+    os.makedirs(PLOT_DIRECTORY, exist_ok=True)
+
+    model_names = [b.name() for b in bayesian_models]
+    task_name = bayesian_models[0].data_task.name()
+
+    for class_index, class_name in enumerate(classes):
+        recall_arrays = []
+        precision_arrays = []
+        for b in bayesian_models:
+            cm_array = b.load_posterior_samples(class_index=class_index)
+            recall_array = compute_recalls(cm_array)
+            recall_arrays.append(recall_array)
+            precision_array = compute_precisions(cm_array)
+            precision_arrays.append(precision_array)
+        plot_posterior_comparison(
+            model_posteriors=recall_arrays,
+            model_names=model_names,
+            plot_path=os.path.join(PLOT_DIRECTORY, f"{task_name}_recall_class_{class_index}"),
+            metric_name="Recall",
+            task_name=task_name,
+            class_name=classes[class_index]
+        )
+        plot_posterior_comparison(
+            model_posteriors=precision_arrays,
+            model_names=model_names,
+            plot_path=os.path.join(PLOT_DIRECTORY, f"{task_name}_precision_class_{class_index}"),
+            metric_name="Precision",
+            task_name=task_name,
+            class_name=class_name
+        )
 
 
 if __name__ == "__main__":
