@@ -201,7 +201,7 @@ class DirichletHyperpriorModel(BayesianModel):
         with pm.Model() as model:
             # The prior over each of the 4 parameters describing the multinomial from which a confusion
             # matrix is sampled is a dirichlet distribution whose parameters are samples from the hyperprior.
-            hyperprior = pm.Uniform("hyperprior", lower=0.0, upper="100.", shape=4)
+            hyperprior = pm.Uniform("hyperprior", lower=0.0, upper=100.0, shape=4)
         
             # For each class, a prior is sampled from the hyperprior and a likelihood function is
             # defined based on the observed confusion matrix.
