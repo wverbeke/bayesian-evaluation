@@ -115,7 +115,7 @@ class CIFAR10Task(DataTask):
 class CIFAR100Task(DataTask):
 
     def data_loader():
-        return CIFAR10Loader
+        return CIFAR100Loader
 
     def name():
         return "CIFAR100"

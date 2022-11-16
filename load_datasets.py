@@ -120,7 +120,7 @@ class CIFAR100Loader(Dataset):
                 "baby", "boy", "girl", "man", "woman",
                 "crocodile", "dinosaur", "lizard", "snake", "turtle",
                 "hamster", "mouse", "rabbit", "shrew", "squirrel",
-                "maple", "oak", "palm", "pine", "willow"
+                "maple", "oak", "palm", "pine", "willow",
                 "bicycle", "bus", "motorcycle", "pickup truck", "train",
                 "lawn-mower", "rocket", "streetcar", "tank", "tractor"]
 
