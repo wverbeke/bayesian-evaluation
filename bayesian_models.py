@@ -86,6 +86,14 @@ class BayesianModel:
         # The function the builds the model must be specified by the user for each concrete model.
         self._model = self.build_model(observed_cms=binary_cms)
 
+        # Compute the number of entries in the evaluation set used for each class in the data sets
+        # used to make the confusion matrices.
+        self._num_samples_per_class = []
+
+        # Use the fact that the CM is square.
+        for class_index, _ in enumerate(total_cm):
+            self._num_samples_per_class.append(np.sum(total_cm[:, class_index]))
+
     @property
     def data_task(self) -> DataTask:
         """Retrieve the underlying data task."""
@@ -166,9 +174,13 @@ class BayesianModel:
         """Verify that Markov chains for the model were already written to disk."""
         return os.path.isfile(self.trace_file_path())
 
-    def posterior_samples_exist(self):
+    def posterior_samples_exist(self) -> bool:
         """Verify that samples drawn from the posterior were already written to disk."""
         return all(os.path.isfile(self.posterior_file_path(class_index)) for class_index in range(self.data_task.num_classes()))
+
+    def num_samples_per_class(self, class_index: int) -> int:
+        """Number of evaluation samples per class."""
+        return self._num_samples_per_class[class_index]
 
         
 @register_bayesian_model
@@ -280,7 +292,8 @@ def plot_posterior_metrics(bayesian_models):
             plot_path=os.path.join(PLOT_DIRECTORY, f"{task_name}_recall_class_{class_index}"),
             metric_name="Recall",
             task_name=task_name,
-            class_name=classes[class_index]
+            class_name=classes[class_index],
+            num_class_samples=b.num_samples_per_class(class_index)
         )
         plot_posterior_comparison(
             model_posteriors=precision_arrays,
@@ -288,7 +301,8 @@ def plot_posterior_metrics(bayesian_models):
             plot_path=os.path.join(PLOT_DIRECTORY, f"{task_name}_precision_class_{class_index}"),
             metric_name="Precision",
             task_name=task_name,
-            class_name=class_name
+            class_name=class_name,
+            num_class_samples=b.num_samples_per_class(class_index)
         )
 
 
