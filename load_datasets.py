@@ -14,7 +14,7 @@ _DATALOADER_KWARGS = {"num_workers": os.cpu_count(), "prefetch_factor": 4}
 
 def _build_data_loader(dataset: Callable, train: bool, transforms: Callable, batch_size: int):
     data = dataset(train=train, transform=transforms, **_DATASET_KWARGS)
-    return DataLoader(data, batch_size=batch_size, shuffle=train, drop_last=True, **_DATALOADER_KWARGS)
+    return DataLoader(data, batch_size=batch_size, shuffle=train, drop_last=train, **_DATALOADER_KWARGS)
 
 
 class Dataset:
