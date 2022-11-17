@@ -11,7 +11,7 @@ from build_neural_networks import SimpleCNN, Classifier
 from data_tasks import MODEL_DIRECTORY, DEVICE, DataTask, TASK_REGISTER
 
 class ModelTrainer:
-
+    """Class collecting all the functionality to train and evaluate a neural network model."""
     def __init__(self, loss_fn: Callable, optimizer: Callable, model: nn.Module):
         self._loss_fn = loss_fn
         self._optimizer = optimizer
@@ -83,6 +83,7 @@ class ModelTrainer:
 
 
 class CallbackResult(Enum):
+    """Results used in the convergence check."""
     NEW_BEST = 0
     WORSE = 1
     STOP = 2
@@ -90,7 +91,11 @@ class CallbackResult(Enum):
 
 
 class EarlyStopper:
+    """Convergence criterion for model training.
 
+    If the eval loss has not improved for a given number of training epochs, the training is
+    considered to have congerged.
+    """
     def __init__(self, tolerance: int):
         self._tolerance = tolerance
         self._fail_count = 0
@@ -108,7 +113,7 @@ class EarlyStopper:
 
     
 def train_model(data_task: DataTask):
-
+    """Train a neural network model until the convergence criterion is achieved."""
     # Make the data laoders for the model.
     train_loader, eval_loader = data_task.load_data()
     model = data_task.build_model()
@@ -134,5 +139,6 @@ def train_model(data_task: DataTask):
 if __name__ == '__main__':
     # Train all neural network models until convergence.
     for task in TASK_REGISTER:
+        if task.model_exists(): continue
         print(f"Training task {task.name()}")
         train_model(task)
