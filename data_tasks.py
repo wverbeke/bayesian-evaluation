@@ -4,7 +4,6 @@ from abc import abstractmethod
 import torch
 
 from build_neural_networks import Resnet18, SimpleCNN, Classifier
-#from load_datasets import load_fashionMNIST_data, load_CIFAR10_data, load_CIFAR100_data, load_GTSRB_data
 from load_datasets import FashionMNISTLoader, CIFAR10Loader, CIFAR100Loader, GTSRBLoader
 
 MODEL_DIRECTORY = "trained_models"
