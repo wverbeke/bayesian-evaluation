@@ -70,12 +70,17 @@ class DataTask:
         return model
 
     @classmethod
+    def model_exists(cls):
+        return os.path.isfile(cls.model_path())
+
+    @classmethod
     def load_model(cls):
-        if not os.path.isfile(cls.model_path()):
+        if not cls.model_exists():
             raise ValueError(f"Can not load model {cls.model_path()} because it does not exist.")
         model = cls.build_model()
         model.load_state_dict(torch.load(cls.model_path()))
         return model
+
 
 
 # Register all the individual data sets and their training/evaluatin tasks.
