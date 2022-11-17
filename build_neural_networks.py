@@ -13,13 +13,15 @@ class ResnetBlockB(nn.Module):
         self._relu = nn.ReLU()
         if downsample_ratio != 1:
             self._skip = nn.Conv2d(in_channels=in_channels, out_channels=out_channels, kernel_size=(1, 1), stride=(downsample_ratio, downsample_ratio))
+            self._bn_skip = nn.BatchNorm2d(out_channels)
         else:
             self._skip = (lambda x: x)
+            self._bn_skip = (lambda x: x)
 
     def forward(self, x):
         conv_path_out = self._relu(self._bn_1(self._conv_1(x)))
         conv_path_out = self._bn_2(self._conv_2(conv_path_out))
-        skip_path_out = self._skip(x)
+        skip_path_out = self._bn_skip(self._skip(x))
         return self._relu(torch.add(conv_path_out, skip_path_out))
 
 
@@ -29,10 +31,10 @@ class Resnet18(nn.Module):
     def __init__(self, in_channels: int = 3, channel_multiplier: float = 1.0):
         super().__init__()
         channels = int(64*channel_multiplier)
-        self._init_conv = nn.Conv2d(in_channels=3, out_channels=channels, kernel_size=(7, 7), stride=(2, 2))
+        self._init_conv = nn.Conv2d(in_channels=3, out_channels=channels, kernel_size=(7, 7), stride=(2, 2), padding=2)
         self._init_bn = nn.BatchNorm2d(channels)
         self._relu = nn.ReLU()
-        self._init_pool = nn.MaxPool2d(kernel_size=(3, 3), stride=(2, 2))
+        self._init_pool = nn.MaxPool2d(kernel_size=(3, 3), stride=(2, 2), padding=1)
         
         self._resnet_body = nn.Sequential()
 
