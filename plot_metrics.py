@@ -2,7 +2,10 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 
-def plot_posterior_comparison(model_posteriors, model_names, plot_path, metric_name, task_name, class_name, num_class_samples, num_bins: int = 40):
+def plot_posterior_comparison(model_posteriors, model_names, plot_path, metric_name, task_name, class_name, num_class_samples, observed, num_bins: int = 40):
+
+    if len(model_posteriors) < 1:
+        raise ValueError("There must be at least one posterior to plot.")
 
     if len(model_posteriors) != len(model_names):
         raise ValueError("Each posterior should have a corresponding name.")
@@ -18,6 +21,24 @@ def plot_posterior_comparison(model_posteriors, model_names, plot_path, metric_n
     plt.legend()
     plt.title(f"{task_name}: {class_name}, {num_class_samples} eval samples.")
 
+    # Make the y-range decent to avoid overlap between the legend and the graph.
+    ax = plt.gca()
+    y_upper = ax.get_ylim()[-1]*1.2
+    plt.ylim([0, y_upper])
+
+    # The same number of samples should be generated for each model.
+    chain_length = len(model_posteriors[0])
+
+    # Write the chain length on the plot.
+    xmin, xmax = ax.get_xlim()
+    ymin, ymax = ax.get_ylim()
+    xloc = (xmax - xmin)*0.05 + xmin
+    yloc = (ymax - ymin)*0.9 + ymin
+    text = f"{chain_length} elements in Markov chain"
+    ax.text(xloc, yloc, text, fontsize=10)
+
+    # Draw an arrow at the observed metric value.
+    plt.annotate("Observed", xy=(observed, (ymax - ymin)*0.05), xytext=(observed, (ymax - ymin)*0.4), arrowprops={"facecolor":"black", "width":0.02}, ha="center")
     if not "." in plot_path:
         plt.savefig(plot_path + ".pdf")
         plt.savefig(plot_path + ".png")

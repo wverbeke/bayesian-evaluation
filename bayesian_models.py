@@ -15,7 +15,7 @@ import numpy as np
 import pymc as pm
 import xarray as xr
 
-from confusion_matrix import BinaryCM, convert_to_binary
+from confusion_matrix import BinaryCM, convert_to_binary, divide_safe
 from data_tasks import TASK_REGISTER, DataTask
 from plot_metrics import plot_posterior_comparison
 
@@ -28,14 +28,14 @@ def compute_recalls(cm_array: np.ndarray) -> np.ndarray:
     """Compute the recalls for an array of sampled confusion matrices."""
     tp_array = cm_array[:, 0]
     fn_array = cm_array[:, 2]
-    return tp_array/(tp_array + fn_array)
+    return divide_safe(tp_array, tp_array + fn_array)
 
 
 def compute_precisions(cm_array: np.ndarray) -> np.ndarray:
     """Compute the precisions for an array of sampled confusion matrices."""
     tp_array = cm_array[:, 0]
     fp_array = cm_array[:, 1]
-    return tp_array/(tp_array + fp_array)
+    return divide_safe(tp_array, tp_array + fp_array)
 
 
 def _prior_name(class_index: int) -> str:
@@ -77,14 +77,16 @@ class BayesianModel:
         total_cm = np.load(data_task.confusion_matrix_path())
 
         # Convert the total confusion matrix to a set of binary one-vs-all confusion matrices for each class.
-        binary_cms = []
+        # Store the binary confusion matrices for plotting the observed values later on.
+        self._binary_cms = []
         for class_index, _ in enumerate(total_cm):
             binary_cm = convert_to_binary(confusion_matrix=total_cm, class_index=class_index)
-            binary_cms.append(binary_cm)
+            self._binary_cms.append(binary_cm)
+
 
         # Build the Bayesian model with the observed confusion matrices.
         # The function the builds the model must be specified by the user for each concrete model.
-        self._model = self.build_model(observed_cms=binary_cms)
+        self._model = self.build_model(observed_cms=self._binary_cms)
 
         # Compute the number of entries in the evaluation set used for each class in the data sets
         # used to make the confusion matrices.
@@ -182,6 +184,10 @@ class BayesianModel:
         """Number of evaluation samples per class."""
         return self._num_samples_per_class[class_index]
 
+    def observed_binary_cm(self, class_index: int) -> BinaryCM:
+        """Retrieve the observed binary confusion matrix for a particular class."""
+        return self._binary_cms[class_index]
+
         
 @register_bayesian_model
 class SimpleModel(BayesianModel):
@@ -272,10 +278,12 @@ def plot_posterior_metrics(bayesian_models):
     if not all(b.posterior_samples_exist() for b in bayesian_models):
         raise ValueError("Can only plot the posterior distributions for the metrics when the posterior samples are available.")
 
-    os.makedirs(PLOT_DIRECTORY, exist_ok=True)
 
+    # All models are assumed to operate on the same task.
     model_names = [b.name() for b in bayesian_models]
     task_name = bayesian_models[0].data_task.name()
+    os.makedirs(os.path.join(PLOT_DIRECTORY, task_name), exist_ok=True)
+
 
     for class_index, class_name in enumerate(classes):
         recall_arrays = []
@@ -286,23 +294,29 @@ def plot_posterior_metrics(bayesian_models):
             recall_arrays.append(recall_array)
             precision_array = compute_precisions(cm_array)
             precision_arrays.append(precision_array)
+
         plot_posterior_comparison(
             model_posteriors=recall_arrays,
             model_names=model_names,
-            plot_path=os.path.join(PLOT_DIRECTORY, f"{task_name}_recall_class_{class_index}"),
+            plot_path=os.path.join(PLOT_DIRECTORY, task_name, f"{task_name}_recall_class_{class_index}"),
             metric_name="Recall",
             task_name=task_name,
             class_name=classes[class_index],
-            num_class_samples=b.num_samples_per_class(class_index)
+
+            # Given that all models work on the same task, they have the same underlying observed confusion matrix
+            # and class counts.
+            num_class_samples=b.num_samples_per_class(class_index),
+            observed=b.observed_binary_cm(class_index).recall()
         )
         plot_posterior_comparison(
             model_posteriors=precision_arrays,
             model_names=model_names,
-            plot_path=os.path.join(PLOT_DIRECTORY, f"{task_name}_precision_class_{class_index}"),
+            plot_path=os.path.join(PLOT_DIRECTORY, task_name, f"{task_name}_precision_class_{class_index}"),
             metric_name="Precision",
             task_name=task_name,
             class_name=class_name,
-            num_class_samples=b.num_samples_per_class(class_index)
+            num_class_samples=b.num_samples_per_class(class_index),
+            observed=b.observed_binary_cm(class_index).precision()
         )
 
 
