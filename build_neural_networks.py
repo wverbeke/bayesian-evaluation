@@ -31,7 +31,7 @@ class Resnet18(nn.Module):
     def __init__(self, in_channels: int = 3, channel_multiplier: float = 1.0):
         super().__init__()
         channels = int(64*channel_multiplier)
-        self._init_conv = nn.Conv2d(in_channels=3, out_channels=channels, kernel_size=(7, 7), stride=(2, 2), padding=2)
+        self._init_conv = nn.Conv2d(in_channels=3, out_channels=channels, kernel_size=(7, 7), stride=(2, 2), padding=3)
         self._init_bn = nn.BatchNorm2d(channels)
         self._relu = nn.ReLU()
         self._init_pool = nn.MaxPool2d(kernel_size=(3, 3), stride=(2, 2), padding=1)
