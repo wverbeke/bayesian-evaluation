@@ -7,6 +7,7 @@ The statistical model consists of three stages:
 2. The prior sampled from the hyperprior is used together with the likelihood to form a posterior for the performance of a class.
 3. A multinomial likelihood models the observed counts in the confusion matrix for a given class.
 """
+import argparse
 from typing import List, Union, Optional
 import os
 from abc import abstractmethod
@@ -319,16 +320,29 @@ def plot_posterior_metrics(bayesian_models):
             observed=b.observed_binary_cm(class_index).precision()
         )
 
+def parse_args():
+    """Command line arguments for running the evaluation of the Bayesian models."""
+    parser = argparse.ArgumentParser(description="Arguments for the evaluation of Bayesian models used to descripe the performance metrics of neural networks.")
+    parser.add_argument("--num-samples-per-core", type=int, default=2000, help="Number of elements in the Markov chain generated on each cpu core to evaluate the Bayesian model.")
+    parser.add_argument("--reevaluate", action="store_true", help="Whether to rerun the evaluation of models that have an existing set of sampled Markov chains or posterios samples. By default existing evaluation results will be reused.")
+    return parser.parse_args()
+
 
 if __name__ == "__main__":
+    # Parse the command line arguments.
+    args = parse_args()
+
     # Loop over all data tasks and Bayesian models and evaluate the results.
     for task in TASK_REGISTER:
+        print("#"*50)
+        print(f"Evaluating bayesian models for {task.name()}")
         b_models = []
         for model_class in BAYESIAN_MODEL_REGISTER:
+            print(f"Sampling for {model_class.name()}")
             bm = model_class(task)
             b_models.append(bm)
-            if not bm.trace_exists():
-                trace = bm.trace(num_samples_per_core=100)
+            if not bm.trace_exists() or args.reevaluate:
+                trace = bm.trace(num_samples_per_core=args.num_samples_per_core)
                 bm.sample_posterior_predictive(trace)
             elif not bm.posterior_samples_exist():
                 bm.sample_posterior_predictive(bm.load_trace())
