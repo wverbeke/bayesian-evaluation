@@ -46,7 +46,7 @@ def compute_confusion_matrix(data_task: DataTask):
 
 if __name__ == "__main__":
     os.makedirs(EVAL_DIRECTORY, exist_ok=True)
-    for task in TASK_REGISTER[:1]:
+    for task in TASK_REGISTER:
         print(f"Computing confusion matrix for {task.name()} task.")
         cm = compute_confusion_matrix(task)
         np.save(task.confusion_matrix_path(), cm.numpy())
