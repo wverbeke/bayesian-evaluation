@@ -1,6 +1,14 @@
 """Binary confusion matrix and utilities."""
 import numpy as np
 
+# Numerically safe divison of numpy arrays.
+def divide_safe(numerator, denominator):
+    """Numericall safe division."""
+    numerator = numerator.astype(np.float64)
+    denominator = denominator.astype(np.float64)
+    return np.divide(numerator, denominator, out=np.zeros_like(numerator), where=(denominator > 1e-6))
+
+
 class BinaryCM:
     """Binary confusion matrix.
 
@@ -42,22 +50,24 @@ class BinaryCM:
         return str(self.numpy())
 
     def recall(self):
-        return self.tp/(self.tp + self.fn)
+        return divide_safe(self.tp, self.tp + self.fn)
 
     def precision(self):
-        return self.tp/(self.tp + self.fp)
+        return divide_safe(self.tp, self.tp + self.fp)
 
     def f1score(self):
         p = self.precision()
         r = self.recall()
-        return 2*(p*r)/(p + r)
+        return divide_safe(2*p*r, p + r)
 
 
 def convert_to_binary(confusion_matrix: np.ndarray, class_index: int):
     """Convert a numpy confusion matrix into a binary confusion matrix."""
     # Verify that the given confusion is of rank two.
     if len(confusion_matrix.shape) != 2:
-        raise ValueError("Confusion matrix must be of rank 2, but a matrix of rank {len(confusion_matrix.shape)} was given.")
+        raise ValueError(f"Confusion matrix must be of rank 2, but a matrix of rank {len(confusion_matrix.shape)} was given.")
+    if confusion_matrix.shape[0] != confusion_matrix.shape[1]:
+        raise ValueError(f"Confusion matrix must be a square matrix, but a {confusion_matrix.shape[0]}X{confusion_matrix.shape[1]} matrix is given.")
     tp = confusion_matrix[class_index, class_index]
     fp = np.sum(np.delete(confusion_matrix[class_index], class_index))
     fn = np.sum(np.delete(confusion_matrix, class_index, axis=0)[:, class_index])
