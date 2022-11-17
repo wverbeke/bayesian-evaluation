@@ -15,7 +15,7 @@ def plot_posterior_comparison(model_posteriors, model_names, plot_path, metric_n
 
     # Plot the posteriors for each model.
     for posterior, name in zip(model_posteriors, model_names):
-        plt.hist(posterior, bins=bins, histtype="step", label=name)
+        plt.hist(posterior, bins=bins, histtype="step", label=name.replace("_", " "))
     plt.xlabel(metric_name)
     plt.ylabel("Number of posterior samples")
     plt.legend()
