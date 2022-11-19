@@ -42,11 +42,18 @@ class ModelTrainer:
         loss.backward()
         self._optimizer.step()
 
+        return loss
+
     def train_epoch(self, dataloader):
         """A single training epoch."""
+        total_train_loss = 0
+        num_batches = 0
         self._model.train()
         for x_batch, y_batch in tqdm(dataloader):
-            self.train_step(x_batch, y_batch)
+            loss = self.train_step(x_batch, y_batch)
+            total_train_loss += loss
+            num_batches += 1
+        return (total_train_loss/num_batches)
 
     def eval_step(self, x_batch, y_batch):
         """Evaluation of a single batch."""
@@ -74,7 +81,8 @@ class ModelTrainer:
         print("-"*100)
         print(f"Epoch {self._epoch_counter}")
         print("Train:")
-        self.train_epoch(train_loader)
+        train_loss = self.train_epoch(train_loader)
+        print(f"Train loss = {train_loss:.3f}")
         print("Eval:")
         eval_loss = self.eval_epoch(eval_loader)
         print(f"Eval loss = {eval_loss:.3f}")
@@ -123,7 +131,7 @@ def train_model(data_task: DataTask):
     os.makedirs(MODEL_DIRECTORY, exist_ok=True)
 
     # Train the model until the eval loss stops improving for more than 5 epochs.
-    trainer = ModelTrainer(nn.CrossEntropyLoss(), torch.optim.Adam(model.parameters()), model)
+    trainer = ModelTrainer(nn.CrossEntropyLoss(), torch.optim.Adam(model.parameters(), lr=1e-3), model)
     callback = EarlyStopper(tolerance=7)
     while True:
         eval_loss = trainer.train_and_eval_epoch(train_loader, eval_loader)
