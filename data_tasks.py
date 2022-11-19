@@ -4,7 +4,7 @@ from abc import abstractmethod
 import torch
 
 from build_neural_networks import Resnet18, SimpleCNN, Classifier
-from load_datasets import FashionMNISTLoader, CIFAR10Loader, CIFAR100Loader, GTSRBLoader
+from load_datasets import FashionMNISTLoader, CIFAR10Loader, CIFAR100Loader, GTSRBLoader, MapillaryLoader
 
 MODEL_DIRECTORY = "trained_models"
 EVAL_DIRECTORY = "confusion_matrices"
@@ -62,7 +62,13 @@ class DataTask:
 
     @classmethod
     def build_model(cls):
-        model = Classifier(body=cls._build_model(), num_classes=cls.num_classes())
+        """Build the neural network model to solve the task.
+
+        Pytorch expects raw logits in the cross entropy loss computation, so softmax should not be
+        used in the end of the models. To compute confusion matrices we only use argmax, which is
+        invariant under the monotomous softmax function, so we have no need for softmax right now.
+        """
+        model = Classifier(body=cls._build_model(), num_classes=cls.num_classes(), softmax=False)
 
         # Place the model on GPU if available.
         model = model.to(DEVICE)
@@ -133,3 +139,13 @@ class GTSRBTask(DataTask):
 
     def name():
         return "GTSRB"
+
+
+@register_task
+class MapillaryTask(DataTask):
+
+    def data_loader():
+        return MapillaryLoader
+
+    def name():
+        return "Mapillary"

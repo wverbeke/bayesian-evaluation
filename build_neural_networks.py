@@ -102,15 +102,19 @@ class SimpleCNN(nn.Module):
 
 
 class Classifier(nn.Module):
-    """Wrap a model backbone to become a classifier."""
-    def __init__(self, body: nn.Module, num_classes: int):
+    """Wrap a model backbone to become a classifier.
+
+    The CrossEntropy loss in pytorch expects raw logits, so softmax should not be used with those
+    loss functions.
+    """
+    def __init__(self, body: nn.Module, num_classes: int, softmax: bool = False):
         super().__init__()
         self._body = body
         def _global_pool(tensor):
             return torch.mean(tensor, dim=[2, 3])
         self._global_pool = _global_pool
         self._dense = nn.Linear(in_features=body.out_channels, out_features=num_classes, bias=True)
-        self._softmax = nn.Softmax(dim=1)
+        self._softmax = nn.Softmax(dim=1) if softmax else lambda x: x
 
     def forward(self, x):
         x = self._body(x)
