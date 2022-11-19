@@ -8,7 +8,7 @@ from torch.utils.data import DataLoader
 from torchvision import datasets, transforms
 
 _DATASET_KWARGS = {"root": "datasets", "download": True}
-_SHARED_TRANSFORMS = transforms.Compose([transforms.ToTensor(), transforms.Lambda(lambda x : x/255.)])
+_SHARED_TRANSFORMS = transforms.Compose([transforms.ToTensor()])
 _DATALOADER_KWARGS = {"num_workers": os.cpu_count(), "prefetch_factor": 4}
 
 
