@@ -1,10 +1,11 @@
 import os
 import json
+import math
 from PIL import Image
 from torchvision import datasets, transforms
 from torchvision.utils import save_image
 from torch.utils.data import Dataset, DataLoader
-from bbox import Bbox
+from mapillary_data_loader.bbox import Bbox
 
 BASE_PATH = "/home/willem/code/bayesian-evaluation/datasets/mapillary/"
 ANNOTATION_DIRECTORY = os.path.join(BASE_PATH, "mtsd_v2_fully_annotated/annotations/")
@@ -13,12 +14,14 @@ VAL_IMAGES_DIRECTORY = os.path.join(BASE_PATH, "images_train/")
 EVAL_IMAGES_DIRECTORY = os.path.join(BASE_PATH, "images_val/")
 TEST_IMAGES_DIRECTORY = os.path.join(BASE_PATH, "images_test/")
 TRAIN_PATCH_DIRECTORY = os.path.join(BASE_PATH, "train_patches/")
-EVAL_PATCH_DIRECTORY = os.path.join(BASE_PATH, "train_patches/")
-TEST_PATCH_DIRECTORY = os.path.join(BASE_PATH, "train_patches/")
+EVAL_PATCH_DIRECTORY = os.path.join(BASE_PATH, "eval_patches/")
+TEST_PATCH_DIRECTORY = os.path.join(BASE_PATH, "test_patches/")
 TRAIN_ANNOTATION_LIST_PATH = os.path.join(BASE_PATH, "train_annotations.json")
 EVAL_ANNOTATION_LIST_PATH = os.path.join(BASE_PATH, "eval_annotations.json")
 TEST_ANNOTATION_LIST_PATH = os.path.join(BASE_PATH, "test_patches/train_annotations.json")
 PADDING_FRACTION=0.1
+TRAINING_PATCH_SIZE = (64, 64)
+TARGET_PATCH_SIZE = tuple(int(math.ceil(t*(1.0 + PADDING_FRACTION))) for t in TRAINING_PATCH_SIZE)
 
 
 def read_annotation(annotation_path):
@@ -55,6 +58,13 @@ def extract_patches_and_annotation(image, annotation):
     patches = []
     class_names = []
     for s in signs:
+        bbox_dict = s["bbox"]
+
+        # Annotations with this property cross the boundary of a 360 camera.
+        # The cropping logic used thusfar will not work for such boxes.
+        if "cross_boundary" in s["bbox"]:
+            continue
+
         bbox = Bbox.from_dict(s["bbox"])
         p = bbox.crop_from_image(image)
         patches.append(bbox.crop_from_image(image, padding_fraction=PADDING_FRACTION))
@@ -63,7 +73,6 @@ def extract_patches_and_annotation(image, annotation):
         class_names.append(class_name)
     
     return patches, class_names
-
 
 
 def preprocess_images(input_directory: str, output_directory: str, output_annotation_path: str):
@@ -78,14 +87,19 @@ def preprocess_images(input_directory: str, output_directory: str, output_annota
     # Store a mapping of all cropped traffic sign patch names to the corresponding class name.
     patch_name_to_class_name = {}
 
+    # Pytorch resize transformation.
+    resize = transforms.Resize(TARGET_PATCH_SIZE)
+
     for image, annotation, image_name in data_loader:
         # For some reason the unpacking returns (image_name,)
         image_name = image_name[0]
         patches, class_names = extract_patches_and_annotation(image, annotation)
+        patches = [resize(p) for p in patches]
         for i, (patch, class_name) in enumerate(zip(patches, class_names)):
             patch_path = os.path.join(output_directory, f"{image_name}_patch_{i}.png")
             patch_name_to_class_name[patch_path] = class_name
             save_image(patch, patch_path)
+
     with open(output_annotation_path, "w") as f:
         json.dump(patch_name_to_class_name, f)
 
@@ -104,5 +118,5 @@ def preprocess_test_images():
 
 if __name__ == "__main__":
     preprocess_train_images()
-    with open("train_annotations.json") as f:
-        print(json.load(f))
+    preprocess_eval_images()
+    #preprocess_test_images()
