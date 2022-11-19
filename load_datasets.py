@@ -7,6 +7,10 @@ import torch
 from torch.utils.data import DataLoader
 from torchvision import datasets, transforms
 
+from mapillary_data_loader.load_mapillary import MapillaryDataset
+from mapillary_data_loader.preproc_mapillary import TRAINING_PATCH_SIZE
+from mapillary_data_loader.make_class_list import mapillary_class_list
+
 _DATASET_KWARGS = {"root": "datasets", "download": True}
 _SHARED_TRANSFORMS = transforms.Compose([transforms.ToTensor()])
 _DATALOADER_KWARGS = {"num_workers": os.cpu_count(), "prefetch_factor": 4}
@@ -152,14 +156,41 @@ class GTSRBLoader(Dataset):
     # For GTSRB the data loading methods must be overridden because the interface is different.
     @classmethod
     def train_loader(cls):
-        train_data = datasets.GTSRB(split="train", transform=cls.train_transforms(), **_DATASET_KWARGS)
+        train_data = cls.torch_dataset()(split="train", transform=cls.train_transforms(), **_DATASET_KWARGS)
         return DataLoader(train_data, batch_size=256, shuffle=True, drop_last=True, **_DATALOADER_KWARGS)
 
     @classmethod
     def eval_loader(cls):
-        eval_data = datasets.GTSRB(split="test", transform=cls.eval_transforms(), **_DATASET_KWARGS)
+        eval_data = cls.torch_dataset()(split="test", transform=cls.eval_transforms(), **_DATASET_KWARGS)
         return DataLoader(eval_data, batch_size=1024, shuffle=False, drop_last=False, **_DATALOADER_KWARGS)
 
     @classmethod
     def classes(cls):
         return ["speed_limit_20", "speed_limit_30", "speed_limit_50", "speed_limit_60", "speed_limit_70", "speed_limit_80", "end_of_speed_limit_80", "speed_limit_100", "speed_limit_120", "no_passing", "no_passing_over_3p5_tons", "priority_next_intersection", "priority_road", "yield", "stop", "no_vehicles", "no_vehicles_over_3p5_tons", "no_entry", "caution", "dangerous_curve_left", "dangerous_curve_right", "double_curve", "bumpy_road", "slippery_road", "road_narrows_right", "road_works", "traffic_signals", "pedestrians", "children_crossing", "bicycles_crossing", "ice_snow", "wild_animals", "end_of_all", "turn_right_ahead", "turn_left_ahead", "proceed_ahead", "proceed_ahead_or_right", "proceed_ahead_or_left", "proceed_right", "proceed_left", "roundabout", "end_of_no_passing", "end_of_no_passing_over_3p5_tons"]
+
+
+class MapillaryLoader(Dataset):
+
+    def torch_dataset():
+        return MapillaryDataset
+
+    def train_transforms():
+        return transforms.Compose([
+            transforms.RandomRotation(15),
+            transforms.RandomCrop(TRAINING_PATCH_SIZE),
+            _SHARED_TRANSFORMS
+        ])
+
+    def eval_transforms():
+        return transforms.Compose([
+            transforms.CenterCrop(TRAINING_PATCH_SIZE),
+            _SHARED_TRANSFORMS
+        ])
+
+    # A large batch size is used to avoid forgetting of very rare classes.
+    def train_batch_size():
+        return 1024
+
+    @classmethod
+    def classes(cls):
+        return mapillary_class_list()

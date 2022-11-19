@@ -12,9 +12,10 @@ from torch.utils.data import Dataset, DataLoader
 from mapillary_data_loader.preproc_mapillary import TRAIN_ANNOTATION_LIST_PATH, EVAL_ANNOTATION_LIST_PATH, read_annotation
 from mapillary_data_loader.make_class_list import mapillary_class_list
 
-class MapillaryLoader(Dataset):
+class MapillaryDataset(Dataset):
 
-    def __init__(self, transform, train):
+    # kwargs are ignored but make it callable in the same way as standard pytorch loaders
+    def __init__(self, transform, train, **kwargs):
         if train:
             annotation_dict = read_annotation(TRAIN_ANNOTATION_LIST_PATH)
         else:
@@ -25,7 +26,7 @@ class MapillaryLoader(Dataset):
         for image_path, class_name in annotation_dict.items():
             class_name = class_name[0]
             self._image_paths.append(image_path)
-            self._annotations.append(class_list.index[class_name])
+            self._annotations.append(class_list.index(class_name))
         self._transform = transform
 
     def __len__(self):
@@ -37,4 +38,4 @@ class MapillaryLoader(Dataset):
         image = Image.open(self._image_paths[index]).convert("RGB")
         image_tensor = self._transform(image)
 
-        return image_tensor, self._anntations[index]
+        return image_tensor, self._annotations[index]
