@@ -24,13 +24,14 @@ def compute_confusion_matrix(data_task: DataTask):
     # Run inference over the evaluation data.
     predictions = []
     labels = []
-    for x, y in eval_data_loader:
-        x = x.to(DEVICE)
-        model_out = model(x)
-        model_out.to(DEVICE_CPU)
-        predictions.append(model_out)
-        labels.append(y)
-    
+    with torch.no_grad():
+        for x, y in eval_data_loader:
+            x = x.to(DEVICE)
+            model_out = model(x)
+            model_out.to(DEVICE_CPU)
+            predictions.append(model_out)
+            labels.append(y)
+        
     # Compute the confusion matrix.
     prediction_tensor = torch.cat(predictions, dim=0).cpu()
     label_tensor = torch.cat(labels, dim=0).cpu()
