@@ -4,7 +4,7 @@ from abc import abstractmethod
 import torch
 
 from build_neural_networks import Resnet18, SimpleCNN, Classifier
-from load_datasets import FashionMNISTLoader, CIFAR10Loader, CIFAR100Loader, GTSRBLoader, MapillaryLoader, MNISTLoader
+from load_datasets import FashionMNISTLoader, CIFAR10Loader, CIFAR100Loader, GTSRBLoader, MapillaryLoader, MNISTLoader, StanfordCarsLoader
 
 MODEL_DIRECTORY = "trained_models"
 EVAL_DIRECTORY = "confusion_matrices"
@@ -161,3 +161,13 @@ class MapillaryTask(DataTask):
 
     def name():
         return "Mapillary"
+
+
+@register_task
+class StanfordCarsTask(DataTask):
+
+    def data_loader():
+        return StanfordCarsLoader
+
+    def name():
+        return "StanfordCars"

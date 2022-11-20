@@ -17,10 +17,14 @@ _SHARED_TRANSFORMS = transforms.Compose([transforms.ToTensor()])
 _DATALOADER_KWARGS = {"num_workers": os.cpu_count(), "prefetch_factor": 4}
 
 
-def _build_data_loader(dataset: Callable, train: bool, transforms: Callable, batch_size: int):
+def _build_data_loader_type_1(dataset: Callable, train: bool, transforms: Callable, batch_size: int):
     data = dataset(train=train, transform=transforms, **_DATASET_KWARGS)
     return DataLoader(data, batch_size=batch_size, shuffle=train, drop_last=train, **_DATALOADER_KWARGS)
 
+def _build_data_loader_type_2(dataset: Callable, train: bool, transforms: Callable, batch_size: int):
+    split = "train" if train else "test"
+    data = dataset(split=split, transform=transforms, **_DATASET_KWARGS)
+    return DataLoader(data, batch_size=batch_size, shuffle=train, drop_last=train, **_DATALOADER_KWARGS)
 
 class Dataset:
 
@@ -46,12 +50,19 @@ class Dataset:
         return 32
 
     @classmethod
+    def _build_data_loader(cls, train: bool, batch_size: int):
+        try:
+            return _build_data_loader_type_1(dataset=cls.torch_dataset(), train=train, transforms=cls.train_transforms(), batch_size=batch_size)
+        except TypeError:
+            return _build_data_loader_type_2(dataset=cls.torch_dataset(), train=train, transforms=cls.train_transforms(), batch_size=batch_size)
+
+    @classmethod
     def train_loader(cls):
-        return _build_data_loader(dataset=cls.torch_dataset(), train=True, transforms=cls.train_transforms(), batch_size=cls.train_batch_size())
+        return cls._build_data_loader(train=True, batch_size=cls.train_batch_size())
 
     @classmethod
     def eval_loader(cls):
-        return _build_data_loader(dataset=cls.torch_dataset(), train=False, transforms=cls.eval_transforms(), batch_size=1024)
+        return cls._build_data_loader(train=False, batch_size=1024)
 
     @classmethod
     def classes(cls):
@@ -141,16 +152,10 @@ class GTSRBLoader(Dataset):
     def train_batch_size():
         return 256
 
-    # For GTSRB the data loading methods must be overridden because the interface is different.
+    # Pytorch interface for getting GTSRB class list seems not to exist.
     @classmethod
-    def train_loader(cls):
-        train_data = cls.torch_dataset()(split="train", transform=cls.train_transforms(), **_DATASET_KWARGS)
-        return DataLoader(train_data, batch_size=256, shuffle=True, drop_last=True, **_DATALOADER_KWARGS)
-
-    @classmethod
-    def eval_loader(cls):
-        eval_data = cls.torch_dataset()(split="test", transform=cls.eval_transforms(), **_DATASET_KWARGS)
-        return DataLoader(eval_data, batch_size=1024, shuffle=False, drop_last=False, **_DATALOADER_KWARGS)
+    def classes(cls):
+        return ["speed_limit_20", "speed_limit_30", "speed_limit_50", "speed_limit_60", "speed_limit_70", "speed_limit_80", "end_of_speed_limit_80", "speed_limit_100", "speed_limit_120", "no_passing", "no_passing_over_3p5_tons", "priority_next_intersection", "priority_road", "yield", "stop", "no_vehicles", "no_vehicles_over_3p5_tons", "no_entry", "caution", "dangerous_curve_left", "dangerous_curve_right", "double_curve", "bumpy_road", "slippery_road", "road_narrows_right", "road_works", "traffic_signals", "pedestrians", "children_crossing", "bicycles_crossing", "ice_snow", "wild_animals", "end_of_all", "turn_right_ahead", "turn_left_ahead", "proceed_ahead", "proceed_ahead_or_right", "proceed_ahead_or_left", "proceed_right", "proceed_left", "roundabout", "end_of_no_passing", "end_of_no_passing_over_3p5_tons"]
 
 
 
@@ -179,3 +184,30 @@ class MapillaryLoader(Dataset):
     @classmethod
     def classes(cls):
         return mapillary_class_list()
+
+
+class StanfordCarsLoader(Dataset):
+
+    def torch_dataset():
+        return datasets.StanfordCars
+
+    def train_transforms():
+        return transforms.Compose([
+            transforms.Resize((244,244)),
+            transforms.RandomRotation(15),
+            transforms.RandomCrop((224,244)),
+            transforms.RandomHorizontalFlip(),
+            _SHARED_TRANSFORMS
+        ])
+
+    def eval_transforms():
+        return transforms.Compose([
+            transforms.Resize((244, 244)),
+            transforms.CenterCrop((224, 224)),
+            _SHARED_TRANSFORMS
+        ])
+            
+
+    # Larger batch size than number of classes.
+    def train_batch_size():
+        return 256
