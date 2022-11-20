@@ -71,6 +71,19 @@ class FashionMNISTLoader(Dataset):
         ])
 
 
+class MNISTLoader(Dataset):
+
+    def torch_dataset():
+        return datasets.MNIST
+
+    def train_transforms():
+        return transforms.Compose([
+            transforms.RandomCrop(28, padding=4),
+            transforms.RandomHorizontalFlip(),
+            _SHARED_TRANSFORMS
+        ])
+
+
 
 class CIFAR10Loader(Dataset):
 

@@ -4,7 +4,7 @@ from abc import abstractmethod
 import torch
 
 from build_neural_networks import Resnet18, SimpleCNN, Classifier
-from load_datasets import FashionMNISTLoader, CIFAR10Loader, CIFAR100Loader, GTSRBLoader, MapillaryLoader
+from load_datasets import FashionMNISTLoader, CIFAR10Loader, CIFAR100Loader, GTSRBLoader, MapillaryLoader, MNISTLoader
 
 MODEL_DIRECTORY = "trained_models"
 EVAL_DIRECTORY = "confusion_matrices"
@@ -107,6 +107,18 @@ class FashionMNISTTask(DataTask):
 
     # The model should be overriden for FashionMNIST because of the number of input channels.
     # We also use a simpler model for this small data set than a ResNet.
+    def _build_model():
+        return SimpleCNN(in_channels=1)
+
+@register_task
+class MNISTTask(DataTask):
+
+    def data_loader():
+        return MNISTLoader
+
+    def name():
+        return "MNIST"
+
     def _build_model():
         return SimpleCNN(in_channels=1)
 
