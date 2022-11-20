@@ -211,3 +211,34 @@ class StanfordCarsLoader(Dataset):
     # Larger batch size than number of classes.
     def train_batch_size():
         return 256
+
+
+class Flowers102Loader(Dataset):
+
+    def torch_dataset():
+        return datasets.Flowers102
+
+    def train_transforms():
+        return transforms.Compose([
+            # Keep aspect ratio by resizing short axis to 256
+            transforms.Resize(256),
+            transforms.RandomRotation(15),
+            transforms.RandomCrop((224,244)),
+            transforms.RandomHorizontalFlip(),
+            _SHARED_TRANSFORMS
+        ])
+
+    def eval_transforms():
+        return transforms.Compose([
+            transforms.Resize(256),
+            transforms.CenterCrop((224, 224)),
+            _SHARED_TRANSFORMS
+        ])
+
+    def train_batch_size():
+        return 128
+
+    #TODO Find class list, this is not available in the pytorch class for this data set.
+    @classmethod
+    def classes(cls):
+        return list(range(102))
