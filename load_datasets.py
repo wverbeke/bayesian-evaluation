@@ -11,7 +11,8 @@ from mapillary_data_loader.load_mapillary import MapillaryDataset
 from mapillary_data_loader.preproc_mapillary import TRAINING_PATCH_SIZE
 from mapillary_data_loader.make_class_list import mapillary_class_list
 
-_DATASET_KWARGS = {"root": "datasets", "download": True}
+DATA_DIRECTORY = "datasets"
+_DATASET_KWARGS = {"root": DATA_DIRECTORY, "download": True}
 _SHARED_TRANSFORMS = transforms.Compose([transforms.ToTensor()])
 _DATALOADER_KWARGS = {"num_workers": os.cpu_count(), "prefetch_factor": 4}
 
@@ -54,7 +55,10 @@ class Dataset:
 
     @classmethod
     def classes(cls):
-        return cls.torch_dataset().classes
+        try:
+            return cls.torch_dataset().classes
+        except AttributeError:
+            return cls.torch_dataset()(**_DATASET_KWARGS).classes
 
 
 
@@ -97,12 +101,6 @@ class CIFAR10Loader(Dataset):
             _SHARED_TRANSFORMS
         ])
 
-    # Torchvision data sets have inconsistent interfaces.
-    # The CIFAR10 and CIFAR100 data sets do not have the 'classes' attribute.
-    @classmethod
-    def classes(cls):
-        return ["plane", "car", "bird", "cat", "deer", "dog", "frog", "horse", "ship", "truck"]
-
 
 
 class CIFAR100Loader(Dataset):
@@ -117,29 +115,6 @@ class CIFAR100Loader(Dataset):
             transforms.RandomHorizontalFlip(),
             _SHARED_TRANSFORMS
         ])
-
-    @classmethod 
-    def classes(cls):
-        return ["beaver", "dolphin", "otter", "seal", "whale",
-                "aquarium fish", "flatfish", "ray", "shark", "trout",
-                "orchids", "poppies", "roses", "sunflowers", "tulips",
-                "bottles", "bowls", "cans", "cups", "plates",
-                "apples", "mushrooms", "oranges", "pears", "sweet peppers",
-                "clock", "computer keyboard", "lamp", "telephone", "television",
-                "bed", "chair", "couch", "table", "wardrobe",
-                "bee", "beetle", "butterfly", "caterpillar", "cockroach",
-                "bear", "leopard", "lion", "tiger", "wolf",
-                "bridge", "castle", "house", "road", "skyscraper",
-                "cloud", "forest", "mountain", "plain", "sea",
-                "camel", "cattle", "chimpanzee", "elephant", "kangaroo",
-                "fox", "porcupine", "possum", "raccoon", "skunk",
-                "crab", "lobster", "snail", "spider", "worm",
-                "baby", "boy", "girl", "man", "woman",
-                "crocodile", "dinosaur", "lizard", "snake", "turtle",
-                "hamster", "mouse", "rabbit", "shrew", "squirrel",
-                "maple", "oak", "palm", "pine", "willow",
-                "bicycle", "bus", "motorcycle", "pickup truck", "train",
-                "lawn-mower", "rocket", "streetcar", "tank", "tractor"]
 
 
 
@@ -177,9 +152,6 @@ class GTSRBLoader(Dataset):
         eval_data = cls.torch_dataset()(split="test", transform=cls.eval_transforms(), **_DATASET_KWARGS)
         return DataLoader(eval_data, batch_size=1024, shuffle=False, drop_last=False, **_DATALOADER_KWARGS)
 
-    @classmethod
-    def classes(cls):
-        return ["speed_limit_20", "speed_limit_30", "speed_limit_50", "speed_limit_60", "speed_limit_70", "speed_limit_80", "end_of_speed_limit_80", "speed_limit_100", "speed_limit_120", "no_passing", "no_passing_over_3p5_tons", "priority_next_intersection", "priority_road", "yield", "stop", "no_vehicles", "no_vehicles_over_3p5_tons", "no_entry", "caution", "dangerous_curve_left", "dangerous_curve_right", "double_curve", "bumpy_road", "slippery_road", "road_narrows_right", "road_works", "traffic_signals", "pedestrians", "children_crossing", "bicycles_crossing", "ice_snow", "wild_animals", "end_of_all", "turn_right_ahead", "turn_left_ahead", "proceed_ahead", "proceed_ahead_or_right", "proceed_ahead_or_left", "proceed_right", "proceed_left", "roundabout", "end_of_no_passing", "end_of_no_passing_over_3p5_tons"]
 
 
 class MapillaryLoader(Dataset):
