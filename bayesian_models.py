@@ -72,10 +72,7 @@ class BayesianModel:
         self._data_task = data_task
     
         # Load the observed confusion matrix for the given task.
-        cm_path = data_task.confusion_matrix_path()
-        if not os.path.isfile(cm_path):
-            raise ValueError(f"No confusion matrix for {data_task.name()} found. Evaluate the neural network solving this task, and train it if this is not yet done.")
-        total_cm = np.load(data_task.confusion_matrix_path())
+        total_cm = data_task.get_confusion_matrix()
 
         # Convert the total confusion matrix to a set of binary one-vs-all confusion matrices for each class.
         # Store the binary confusion matrices for plotting the observed values later on.
