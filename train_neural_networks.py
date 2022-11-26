@@ -154,7 +154,7 @@ def parse_args():
     """Command line arguments to make the script more flexible."""
     parser = argparse.ArgumentParser(description="Arguments for training neural networks to solve some basic classification tasks.")
     parser.add_argument("--retrain", action="store_true", help="Whether to retrain the neural networks for data tasks that already have a saved model or not.")
-    parser.add_argument("--task", choices=get_task_names(), help="Only train the neural network for a specific data task. By default all neural networks are trained unless they already have a trained model.")
+    parser.add_argument("--tasks", choices=get_task_names(), nargs="+", help="Only train the neural network for a specific data task. By default all neural networks are trained unless they already have a trained model.")
     return parser.parse_args()
 
 
@@ -163,14 +163,13 @@ if __name__ == '__main__':
     args = parse_args()
 
     # Train model for a single task.
-    if args.task:
-        task = find_task(args.task)
-        print(f"Training task {task.name()}")
-        if not task.model_exists() or args.retrain:
-            train_model(task)
+    if args.tasks:
+        tasks_to_train = [find_task(t) for t in args.tasks]
+    else:
+        tasks_to_train = TASK_REGISTER
 
     # Train models for all tasks.
-    for task in TASK_REGISTER:
+    for task in tasks_to_train:
         if task.model_exists() and (not args.retrain): continue
         print(f"Training task {task.name()}")
         train_model(task)
