@@ -247,7 +247,7 @@ class DirichletHyperpriorModel(BayesianModel):
         with pm.Model() as model:
             # The prior over each of the 4 parameters describing the multinomial from which a confusion
             # matrix is sampled is a dirichlet distribution whose parameters are samples from the hyperprior.
-            hyperprior = pm.Uniform("hyperprior", lower=0.0, upper=100.0, shape=4)
+            hyperprior = pm.Uniform("hyperprior", lower=0.0, upper=10000.0, shape=4)
         
             # For each class, a prior is sampled from the hyperprior and a likelihood function is
             # defined based on the observed confusion matrix.
@@ -260,3 +260,37 @@ class DirichletHyperpriorModel(BayesianModel):
                 class_likelihoods.append(likelihood)
     
         return model
+
+
+# TODO: Refactor code to have easy access to the number of training samples.
+@register_bayesian_model
+class LogRegressionModel(BayesianModel):
+
+    @classmethod
+    def name(cls):
+        return "log_regression_model"
+
+    @classmethod
+    def build_model(cls, observed_cms: List[BinaryCM]):
+
+        num_classes = len(observed_cms)
+        total_count = np.sum(observed_cms[0].numpy())
+
+        with pm.Model() as model:
+            bias_hyperprior = pm.Uniform("bias_hyperprior", lower=0.0, upper=10000.0, shape=4)
+            reg_hyperprior = pm.Uniform("reg_hyperprior", lower=0.0, upper=10000.0, shape=4)
+
+            class_priors = []
+            class_likelihoods = []
+            for class_index in range(num_classes):
+                
+                # Use the evaluation set counts as a prior for the training counts.
+                observed_cm = observed_cms[class_index]
+                example_count = (observed_cm.tp + observed_cm.fn)
+
+                prior = pm.Dirichlet(_prior_name(class_index), a=(bias_hyperprior + example_count*pm.math.log(reg_hyperprior)))
+                likelihood = pm.Multinomial(_likelihood_name(class_index), n=total_count, p=prior, observed=observed_cm.numpy())
+                class_priors.append(prior)
+                class_likelihoods.append(likelihood)
+
+            return model
