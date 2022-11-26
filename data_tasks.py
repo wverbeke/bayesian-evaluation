@@ -1,5 +1,6 @@
 import os
 from abc import abstractmethod
+import numpy as np
 
 import torch
 
@@ -48,6 +49,14 @@ class DataTask:
         cm_name = f"{cls.name()}_confusion_matrix.npy"
         return os.path.join(EVAL_DIRECTORY, cm_name)
 
+    @classmethod
+    def get_confusion_matrix(cls) -> np.array:
+        cm_path = cls.confusion_matrix_path()
+        if not os.path.isfile(cm_path):
+            raise ValueError(f"No confusion matrix for {cls.name()} found. Evaluate the neural network solving this task, and train it if this is not yet done.")
+        total_cm = np.load(cls.confusion_matrix_path())
+        return total_cm
+
     @staticmethod
     def _build_model():
         """Build the neural network solving the task."""
@@ -88,7 +97,7 @@ class DataTask:
 
 
 
-# Register all the individual data sets and their training/evaluatin tasks.
+# Register all the individual data sets and their training/evaluation tasks.
 # This makes it easy to train all models in a loop later on and collect the results.
 TASK_REGISTER = []
 def register_task(cls):
@@ -181,3 +190,30 @@ class Flowers102Task(DataTask):
 
     def name():
         return "Flowers102"
+
+
+@register_task
+class SimpleSyntheticTask(DataTask):
+    n_classes = 10
+    n_samples_per_class = 10
+    p_tp = 0.9
+
+    def classes(self):
+        return [str(i) for i in range(self.n_classes)]
+
+    def data_loader():
+        raise NotImplementedError
+
+    def name():
+        return "SimpleSynthetic"
+
+    @classmethod
+    def get_confusion_matrix(cls):
+        cm = []
+        for class_ in range(cls.n_classes):
+            p_vector = [(1 - cls.p_tp) / (cls.n_classes - 1) for _ in range(cls.n_classes)]
+            p_vector[class_] = cls.p_tp
+            class_cm = np.random.multinomial(cls.n_samples_per_class, p_vector)
+            cm.append(class_cm)
+        cm = np.array(cm)
+        return cm
