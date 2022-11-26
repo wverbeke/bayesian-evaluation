@@ -13,6 +13,8 @@ DEVICE_CPU = "cpu"
 DEVICE_GPU = "cuda"
 DEVICE = (DEVICE_GPU if torch.cuda.is_available() else DEVICE_CPU)
 
+
+
 class DataTask:
 
     @staticmethod
@@ -101,8 +103,24 @@ class DataTask:
 # This makes it easy to train all models in a loop later on and collect the results.
 TASK_REGISTER = []
 def register_task(cls):
+    """Decorator for tracking all data tasks."""
     TASK_REGISTER.append(cls)
     return cls
+
+
+def get_task_names():
+    return [t.name() for t in TASK_REGISTER]
+
+
+def find_task(name: str) -> DataTask:
+    """Retrieve a registered data task by its name."""
+    try:
+        task_names = get_task_names()
+        task_index = task_names.index(name)
+        return TASK_REGISTER[task_index]
+    except ValueError as error:
+        raise ValueError(f"There is no data task with name {name}.")
+
 
 
 @register_task

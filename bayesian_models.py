@@ -17,7 +17,7 @@ import pymc as pm
 import xarray as xr
 
 from confusion_matrix import BinaryCM, convert_to_binary, divide_safe
-from data_tasks import TASK_REGISTER, DataTask
+from data_tasks import TASK_REGISTER, DataTask, find_task, get_task_names
 from plot_metrics import plot_posterior_comparison
 
 TRACE_DIRECTORY="mc_traces"
@@ -322,6 +322,8 @@ def parse_args():
     parser = argparse.ArgumentParser(description="Arguments for the evaluation of Bayesian models used to descripe the performance metrics of neural networks.")
     parser.add_argument("--num-samples-per-core", type=int, default=2000, help="Number of elements in the Markov chain generated on each cpu core to evaluate the Bayesian model.")
     parser.add_argument("--reevaluate", action="store_true", help="Whether to rerun the evaluation of models that have an existing set of sampled Markov chains or posterios samples. By default existing evaluation results will be reused.")
+    parser.add_argument("--task", choices=get_task_names(), help="Only evaluate the bayesian model for a specific data task. By default all tasks are evaluated.")
+
     return parser.parse_args()
 
 
@@ -330,7 +332,11 @@ if __name__ == "__main__":
     args = parse_args()
 
     # Loop over all data tasks and Bayesian models and evaluate the results.
-    for task in TASK_REGISTER:
+    if args.task:
+        tasks_to_evaluate = [find_task(args.task)]
+    else:
+        tasks_to_evaluate = TASK_REGISTER
+    for task in tasks_to_evaluate:
         print("#"*50)
         print(f"Evaluating bayesian models for {task.name()}")
         b_models = []

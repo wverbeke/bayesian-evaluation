@@ -9,7 +9,7 @@ import torch
 from torch import nn
 
 from build_neural_networks import SimpleCNN, Classifier
-from data_tasks import MODEL_DIRECTORY, DEVICE, DataTask, TASK_REGISTER
+from data_tasks import MODEL_DIRECTORY, DEVICE, DataTask, TASK_REGISTER, find_task, get_task_names
 
 class ModelTrainer:
     """Class collecting all the functionality to train and evaluate a neural network model."""
@@ -154,8 +154,7 @@ def parse_args():
     """Command line arguments to make the script more flexible."""
     parser = argparse.ArgumentParser(description="Arguments for training neural networks to solve some basic classification tasks.")
     parser.add_argument("--retrain", action="store_true", help="Whether to retrain the neural networks for data tasks that already have a saved model or not.")
-    possible_tasks=[t.name() for t in TASK_REGISTER]
-    parser.add_argument("--task", choices=possible_tasks, help="Only train the neural network for a specific data task. By default all neural networks are trained unless they already have a trained model.")
+    parser.add_argument("--task", choices=get_task_names(), help="Only train the neural network for a specific data task. By default all neural networks are trained unless they already have a trained model.")
     return parser.parse_args()
 
 
@@ -165,11 +164,10 @@ if __name__ == '__main__':
 
     # Train model for a single task.
     if args.task:
-        task_index = [t.name() for t in TASK_REGISTER].index(args.task)
-        task = TASK_REGISTER[task_index]
+        task = find_task(args.task)
         print(f"Training task {task.name()}")
         if not task.model_exists() or args.retrain:
-            train_model(TASK_REGISTER[task_index])
+            train_model(task)
 
     # Train models for all tasks.
     for task in TASK_REGISTER:
