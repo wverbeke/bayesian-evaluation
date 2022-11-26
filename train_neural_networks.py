@@ -124,7 +124,13 @@ class EarlyStopper:
 def train_model(data_task: DataTask):
     """Train a neural network model until the convergence criterion is achieved."""
     # Make the data laoders for the model.
-    train_loader, eval_loader = data_task.load_data()
+    try:
+        train_loader, eval_loader = data_task.load_data()
+
+    # The end goal of the repository is to evaluate Bayesian models. Some tasks involve no neural
+    # network, and these will raise a NotImplemntedError when calling load_data().
+    except NotImplementedError:
+        return
     model = data_task.build_model()
 
     # Directory where the trained model will be stored.
