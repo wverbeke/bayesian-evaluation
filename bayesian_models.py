@@ -56,6 +56,19 @@ def register_bayesian_model(cls):
     BAYESIAN_MODEL_REGISTER.append(cls)
     return cls
 
+def get_bayesian_model_names() -> List[str]:
+    return [b.name() for b in BAYESIAN_MODEL_REGISTER]
+
+def find_bayesian_model(name: str):
+    """Find a Bayesian model by its name."""
+    try:
+        names = get_bayesian_model_names()
+        index = names.index(name)
+        return BAYESIAN_MODEL_REGISTER[index]
+    except ValueError:
+        raise ValueError(f"No bayesian model with name {name}")
+
+
 
 class BayesianModel:
     """Base class for Bayesian models.
@@ -323,6 +336,7 @@ def parse_args():
     parser.add_argument("--num-samples-per-core", type=int, default=2000, help="Number of elements in the Markov chain generated on each cpu core to evaluate the Bayesian model.")
     parser.add_argument("--reevaluate", action="store_true", help="Whether to rerun the evaluation of models that have an existing set of sampled Markov chains or posterios samples. By default existing evaluation results will be reused.")
     parser.add_argument("--task", choices=get_task_names(), help="Only evaluate the bayesian model for a specific data task. By default all tasks are evaluated.")
+    parser.add_argument("--bayesian-models", choices=get_bayesian_model_names(), nargs="+", help="Only evaluate the particular Bayesian models specified here. By default all Bayesian models are evaluated.")
 
     return parser.parse_args()
 
@@ -331,11 +345,17 @@ if __name__ == "__main__":
     # Parse the command line arguments.
     args = parse_args()
 
-    # Loop over all data tasks and Bayesian models and evaluate the results.
+    # Loop over all requested data tasks and Bayesian models and evaluate the results.
     if args.task:
         tasks_to_evaluate = [find_task(args.task)]
     else:
         tasks_to_evaluate = TASK_REGISTER
+    if args.bayesian_models:
+        print(args.bayesian_models)
+        models_to_evaluate = args.bayesian_models
+    else:
+        models_to_evaluate = BAYESIAN_MODEL_REGISTER
+
     for task in tasks_to_evaluate:
         print("#"*50)
         print(f"Evaluating bayesian models for {task.name()}")
