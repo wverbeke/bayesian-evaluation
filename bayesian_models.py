@@ -288,7 +288,7 @@ class LogRegressionModel(BayesianModel):
                 observed_cm = observed_cms[class_index]
                 example_count = (observed_cm.tp + observed_cm.fn)
 
-                prior = pm.Dirichlet(_prior_name(class_index), a=(bias_hyperprior + example_count*pm.math.log(reg_hyperprior)))
+                prior = pm.Dirichlet(_prior_name(class_index), a=(bias_hyperprior + example_count*pm.math.log(1e-3 + reg_hyperprior)))
                 likelihood = pm.Multinomial(_likelihood_name(class_index), n=total_count, p=prior, observed=observed_cm.numpy())
                 class_priors.append(prior)
                 class_likelihoods.append(likelihood)
