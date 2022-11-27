@@ -11,7 +11,12 @@ from data_tasks import TASK_REGISTER, SAMPLE_COUNTS_DIRECTORY, TRAINING_COUNTS_F
 def count_training_samples(task):
 
     # Use a batch size of 1 to avoid the drop_remainder dropping samples.
-    train_loader = task.data_loader().train_loader(batch_size=1)
+    try:
+        train_loader = task.data_loader().train_loader(batch_size=1)
+
+    # For synthetic data there is no loader.
+    except NotImplementedError:
+        return
 
     # Only the labels matter.
     # Count the occurences of each label.
