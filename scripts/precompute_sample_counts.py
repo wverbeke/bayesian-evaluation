@@ -6,13 +6,7 @@ sys.path.insert(0, main_directory)
 from collections import Counter
 import json
 import torch
-from data_tasks import TASK_REGISTER
-
-SAMPLE_COUNTS_DIRECTORY="sample_counts"
-TRAINING_COUNTS_FILE_NAME = "training_class_counts"
-
-def _training_counts_path(task):
-    return os.path.join(SAMPLE_COUNTS_DIRECTORY, f"{task.name()}_{TRAINING_COUNTS_FILE_NAME}.json")
+from data_tasks import TASK_REGISTER, SAMPLE_COUNTS_DIRECTORY, TRAINING_COUNTS_FILE_NAME
 
 def count_training_samples(task):
 
@@ -26,7 +20,7 @@ def count_training_samples(task):
         sample_counts.update([int(y_batch)])
 
     # Dump the class counts to a JSON file
-    json_path = _training_counts_path(task)
+    json_path = task.training_counts_path()
     with open(json_path, "w") as f:
         json.dump(sample_counts, f)
     

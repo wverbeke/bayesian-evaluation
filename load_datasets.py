@@ -57,8 +57,8 @@ class Dataset:
             return _build_data_loader_type_2(dataset=cls.torch_dataset(), train=train, transforms=cls.train_transforms(), batch_size=batch_size)
 
     @classmethod
-    def train_loader(cls):
-        return cls._build_data_loader(train=True, batch_size=cls.train_batch_size())
+    def train_loader(cls, batch_size=None):
+        return cls._build_data_loader(train=True, batch_size=cls.train_batch_size() if batch_size is None else batch_size)
 
     @classmethod
     def eval_loader(cls):

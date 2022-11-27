@@ -1,4 +1,5 @@
 import os
+import json
 from abc import abstractmethod
 import numpy as np
 
@@ -13,6 +14,9 @@ DEVICE_CPU = "cpu"
 DEVICE_GPU = "cuda"
 DEVICE = (DEVICE_GPU if torch.cuda.is_available() else DEVICE_CPU)
 
+# For finding the json files with the number of training samples per class.
+SAMPLE_COUNTS_DIRECTORY="sample_counts"
+TRAINING_COUNTS_FILE_NAME = "training_class_counts"
 
 
 class DataTask:
@@ -32,6 +36,26 @@ class DataTask:
         """Get the number of classes in the data set."""
         return len(cls.classes())
 
+    @classmethod
+    def num_training_samples(cls, class_index: int):
+        """Get the number of training samples per class."""
+        # If the training sample counts were already loaded, return them.
+        if hasattr(cls, "_training_sample_counts"):
+            try:
+                return cls._training_sample_counts[class_index]
+            except KeyError:
+                raise KeyError(f"No training sample counts for class index {class_index}.")
+
+        # Load the training sample counts if they were not available yet.
+        if not os.path.isfile(cls.training_counts_path()):
+            raise FileNotFoundError(f"Json file with the class counts for {cls.name()} is not available. Run scripts/precompute_sample_counts.py to generate all class count files.")
+        with open(cls.training_counts_path()) as f:
+            sample_counts = json.load(f)
+
+            # Json stores all keys (class indices) as strings.
+            cls._training_sample_counts = {int(k): v for k, v in sample_counts.items()}
+        return cls.num_training_samples(class_index=class_index)
+
     @staticmethod
     @abstractmethod
     def name():
@@ -45,6 +69,11 @@ class DataTask:
     def model_path(cls):
         model_name = f"{cls.name()}_model"
         return os.path.join(MODEL_DIRECTORY, model_name)
+
+    @classmethod
+    def training_counts_path(cls):
+        file_name = f"{cls.name()}_training_class_counts.json"
+        return os.path.join(SAMPLE_COUNTS_DIRECTORY, file_name)
 
     @classmethod
     def confusion_matrix_path(cls):
