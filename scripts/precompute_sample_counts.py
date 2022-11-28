@@ -6,9 +6,9 @@ sys.path.insert(0, main_directory)
 from collections import Counter
 import json
 import torch
-from data_tasks import TASK_REGISTER, SAMPLE_COUNTS_DIRECTORY, TRAINING_COUNTS_FILE_NAME
+from data_tasks import TASK_REGISTER, SAMPLE_COUNTS_DIRECTORY
 
-def count_training_samples(task):
+def count_train_samples(task):
 
     # Use a batch size of 1 to avoid the drop_remainder dropping samples.
     try:
@@ -25,7 +25,7 @@ def count_training_samples(task):
         sample_counts.update([int(y_batch)])
 
     # Dump the class counts to a JSON file
-    json_path = task.training_counts_path()
+    json_path = task.train_counts_path()
     with open(json_path, "w") as f:
         json.dump(sample_counts, f)
     
@@ -38,4 +38,4 @@ if __name__ == "__main__":
 
     # Compute the training class counts for each task
     for t in TASK_REGISTER:
-        count_training_samples(t)
+        count_train_samples(t)
