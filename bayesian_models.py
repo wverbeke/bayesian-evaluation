@@ -24,6 +24,9 @@ TRACE_DIRECTORY="mc_traces"
 POSTERIOR_DIRECTORY="posterior_samples"
 PLOT_DIRECTORY="plots"
 
+# Cutoff for logarithm calculations.
+LOG_CUTOFF=1e-4
+
 
 def _prior_name(class_index: int) -> str:
     """Internal name of the priors in a Bayesian model."""
@@ -288,7 +291,7 @@ class LogRegressionModel(BayesianModel):
                 observed_cm = observed_cms[class_index]
                 example_count = (observed_cm.tp + observed_cm.fn)
 
-                prior = pm.Dirichlet(_prior_name(class_index), a=(bias_hyperprior + example_count*pm.math.log(1e-3 + reg_hyperprior)))
+                prior = pm.Dirichlet(_prior_name(class_index), a=(bias_hyperprior + example_count*pm.math.log(LOG_CUTOFF+ reg_hyperprior)))
                 likelihood = pm.Multinomial(_likelihood_name(class_index), n=total_count, p=prior, observed=observed_cm.numpy())
                 class_priors.append(prior)
                 class_likelihoods.append(likelihood)
@@ -321,9 +324,6 @@ class SimpleFractionModel(BayesianModel):
             false_class_alpha_hyperprior = pm.Deterministic("false_class_alpha_hyperprior", false_class_size_hyperprior * false_class_bias_hyperprior)
             false_class_beta_hyperprior = pm.Deterministic("false_class_beta_hyperprior", false_class_size_hyperprior * (1-false_class_bias_hyperprior))
 
-            # train_counts = [cls.data_task.num_train_samples(class_index) for class_index in range(num_classes)]
-
-            for class_index in range(num_classes):
 
                 # num_train_true = train_counts[class_index]
 
