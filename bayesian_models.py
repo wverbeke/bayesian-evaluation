@@ -324,6 +324,9 @@ class SimpleFractionModel(BayesianModel):
             false_class_alpha_hyperprior = pm.Deterministic("false_class_alpha_hyperprior", false_class_size_hyperprior * false_class_bias_hyperprior)
             false_class_beta_hyperprior = pm.Deterministic("false_class_beta_hyperprior", false_class_size_hyperprior * (1-false_class_bias_hyperprior))
 
+            # train_counts = [cls.data_task.num_train_samples(class_index) for class_index in range(num_classes)]
+
+            for class_index in range(num_classes):
 
                 # num_train_true = train_counts[class_index]
 
