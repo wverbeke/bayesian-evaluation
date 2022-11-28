@@ -296,7 +296,7 @@ class LogRegressionModel(BayesianModel):
             return model
 
 @register_bayesian_model
-class FractionModel(BayesianModel):
+class SimpleFractionModel(BayesianModel):
 
     @classmethod
     def name(cls):
@@ -309,27 +309,32 @@ class FractionModel(BayesianModel):
         total_count = np.sum(observed_cms[0].numpy())
         
         counts_per_class = np.array([(cm.tp + cm.fn) for cm in observed_cms])
-        count_likelihood = pm.Multinomial("count_likelihood", n=total_count, observed=observed_cm.numpy())
+        with pm.Model() as model:
 
-        true_class_bias_hyperprior = pm.Uniform("true_class_bias_hyperprior", lower=0.0, upper=10000.0, shape=2)
-        true_class_reg_hyperprior = pm.Uniform("true_class_reg_hyperprior", lower=0.0, upper=10000.0, shape=2)
+            true_class_size_hyperprior = pm.Exponential("true_class_size_hyperprior", 1/100)
+            true_class_bias_hyperprior = pm.Beta("true_class_bias_hyperprior", 1, 1)
+            true_class_alpha_hyperprior = pm.Deterministic("true_class_alpha_hyperprior", true_class_size_hyperprior * true_class_bias_hyperprior)
+            true_class_beta_hyperprior = pm.Deterministic("true_class_beta_hyperprior", true_class_size_hyperprior * (1-true_class_bias_hyperprior))
 
-        false_class_bias_hyperprior = pm.Uniform("false_class_bias_hyperprior", lower=0.0, upper=10000.0, shape=2)
-        false_class_reg_hyperprior = pm.Uniform("false_class_reg_hyperprior", lower=0.0, upper=10000.0, shape=2)
+            false_class_size_hyperprior = pm.Exponential("false_class_size_hyperprior", 1/100)
+            false_class_bias_hyperprior = pm.Beta("false_class_bias_hyperprior", 1, 1)
+            false_class_alpha_hyperprior = pm.Deterministic("false_class_alpha_hyperprior", false_class_size_hyperprior * false_class_bias_hyperprior)
+            false_class_beta_hyperprior = pm.Deterministic("false_class_beta_hyperprior", false_class_size_hyperprior * (1-false_class_bias_hyperprior))
 
-        train_counts = [self.data_task.num_train_samples(class_index) for class_index in range(num_classes)]
+            # train_counts = [cls.data_task.num_train_samples(class_index) for class_index in range(num_classes)]
 
-        for class_index in range(num_classes):
+            for class_index in range(num_classes):
 
-            num_train_true = train_counts[class_index]
-            num_train_false = sum(tc for i, tc in enumerate(train_counts) if i != class_index)
+                # num_train_true = train_counts[class_index]
 
-            n_obs_true = counts_likelihood[class_index]
-            n_obs_false = pymc.math.sum([counts_likelihood[c] for c in range(num_classes) if c != class_index])
+                n_obs_true = counts_per_class[class_index]
+                n_obs_false = total_count - n_obs_true
 
-            true_fraction_prior = pm.Beta("true_class_" + _prior_name(class_index), a=(true_class_bias_hyperprior + num_train_true*pm.math.log(1e-3 + true_class_reg_hyperprior)))
-            false_fraction_prior = pm.Beta("false_class_" + _prior_name(class_index), a=(false_class_bias_hyperprior + num_train_false*pm.math.log(1e-3 + false_class_reg_hyperprior)))
+                true_fraction_prior = pm.Beta("true_class_" + _prior_name(class_index), alpha=true_class_alpha_hyperprior, beta=true_class_beta_hyperprior)
+                false_fraction_prior = pm.Beta("false_class_" + _prior_name(class_index), alpha=false_class_alpha_hyperprior, beta=false_class_beta_hyperprior)
 
            
-            true_likelihood = pm.Binomial("true_class_" + _likelihood_name(class_index), p=true_fraction_prior(), n=n_obs_true, observed=[observed_cms[class_index].tp + observed_cms[class_index].fn])
-            false_likelihood = pm.Binomial("false_class_" + _likelihood_name(class_index), p=false_fraction_prior(), n=n_obs_false, observed=[observed_cms[class_index].fp + observed_cms[class_index].tn])
+                true_likelihood = pm.Binomial("true_class_" + _likelihood_name(class_index), p=true_fraction_prior, n=n_obs_true, observed=observed_cms[class_index].tp)
+                false_likelihood = pm.Binomial("false_class_" + _likelihood_name(class_index), p=false_fraction_prior, n=n_obs_false, observed=observed_cms[class_index].tn)
+
+            return model
