@@ -24,6 +24,9 @@ TRACE_DIRECTORY="mc_traces"
 POSTERIOR_DIRECTORY="posterior_samples"
 PLOT_DIRECTORY="plots"
 
+# Cutoff for logarithm calculations.
+LOG_CUTOFF=1e-4
+
 
 def _prior_name(class_index: int) -> str:
     """Internal name of the priors in a Bayesian model."""
@@ -288,7 +291,7 @@ class LogRegressionModel(BayesianModel):
                 observed_cm = observed_cms[class_index]
                 example_count = (observed_cm.tp + observed_cm.fn)
 
-                prior = pm.Dirichlet(_prior_name(class_index), a=(bias_hyperprior + example_count*pm.math.log(1e-3 + reg_hyperprior)))
+                prior = pm.Dirichlet(_prior_name(class_index), a=(bias_hyperprior + example_count*pm.math.log(LOG_CUTOFF+ reg_hyperprior)))
                 likelihood = pm.Multinomial(_likelihood_name(class_index), n=total_count, p=prior, observed=observed_cm.numpy())
                 class_priors.append(prior)
                 class_likelihoods.append(likelihood)
@@ -308,8 +311,9 @@ class FractionModel(BayesianModel):
         num_classes = len(observed_cms)
         total_count = np.sum(observed_cms[0].numpy())
         
-        counts_per_class = np.array([(cm.tp + cm.fn) for cm in observed_cms])
-        count_likelihood = pm.Multinomial("count_likelihood", n=total_count, observed=observed_cm.numpy())
+        eval_counts_per_class = np.array([(cm.tp + cm.fn) for cm in observed_cms])
+        train_counts_per_class = np.array([self.data_task.num_train_samples(class_index) for class_index in range(num_classes)])
+        count_likelihood = pm.Multinomial("count_likelihood", n=total_count, observed=eval_counts_per_class)
 
         true_class_bias_hyperprior = pm.Uniform("true_class_bias_hyperprior", lower=0.0, upper=10000.0, shape=2)
         true_class_reg_hyperprior = pm.Uniform("true_class_reg_hyperprior", lower=0.0, upper=10000.0, shape=2)
@@ -317,19 +321,17 @@ class FractionModel(BayesianModel):
         false_class_bias_hyperprior = pm.Uniform("false_class_bias_hyperprior", lower=0.0, upper=10000.0, shape=2)
         false_class_reg_hyperprior = pm.Uniform("false_class_reg_hyperprior", lower=0.0, upper=10000.0, shape=2)
 
-        train_counts = [self.data_task.num_train_samples(class_index) for class_index in range(num_classes)]
 
         for class_index in range(num_classes):
 
-            num_train_true = train_counts[class_index]
-            num_train_false = sum(tc for i, tc in enumerate(train_counts) if i != class_index)
+            num_train_true = train_counts_per_class[class_index]
+            num_train_false = np.sum(np.delete(train_counts_per_class, class_index))
 
             n_obs_true = counts_likelihood[class_index]
-            n_obs_false = pymc.math.sum([counts_likelihood[c] for c in range(num_classes) if c != class_index])
+            n_obs_false = pymc.math.sum(pymc.math.where(c != class_index, counts_likelihood, 0))
 
-            true_fraction_prior = pm.Beta("true_class_" + _prior_name(class_index), a=(true_class_bias_hyperprior + num_train_true*pm.math.log(1e-3 + true_class_reg_hyperprior)))
-            false_fraction_prior = pm.Beta("false_class_" + _prior_name(class_index), a=(false_class_bias_hyperprior + num_train_false*pm.math.log(1e-3 + false_class_reg_hyperprior)))
-
-           
+            true_fraction_prior = pm.Beta("true_class_" + _prior_name(class_index), a=(true_class_bias_hyperprior + true_class_reg_hyperprior*pm.math.log(LOG_CUTOFF + num_train_truei)))
             true_likelihood = pm.Binomial("true_class_" + _likelihood_name(class_index), p=true_fraction_prior(), n=n_obs_true, observed=[observed_cms[class_index].tp + observed_cms[class_index].fn])
+
+            false_fraction_prior = pm.Beta("false_class_" + _prior_name(class_index), a=(false_class_bias_hyperprior + false_class_reg*pm.math.log(LOG_CUTOFF + num_train_false)))
             false_likelihood = pm.Binomial("false_class_" + _likelihood_name(class_index), p=false_fraction_prior(), n=n_obs_false, observed=[observed_cms[class_index].fp + observed_cms[class_index].tn])
