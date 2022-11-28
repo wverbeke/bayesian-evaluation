@@ -366,3 +366,68 @@ class SimpleFractionModel(BayesianModel):
         false_positives = false_eval_samples*(1.0 - false_fraction_prior)
         return true_positives/(true_positives + false_positives)
 
+
+
+#TODO refactor this to reuse code from SimpleCountModel
+@register_bayesian_model
+class FractionCountModel(BayesianModel):
+
+    @classmethod
+    def name(cls):
+        return "fraction_count_model"
+
+    @classmethod
+    def build_model(cls, observed_cms: List[BinaryCM]):
+
+        num_classes = len(observed_cms)
+        total_count = np.sum(observed_cms[0].numpy())
+
+        counts_per_class = np.array([(cm.tp + cm.fn) for cm in observed_cms])
+
+
+        with pm.Model() as model:
+            count_prior = pm.Dirichlet("count_prior", a=np.ones(num_classes))
+            count_likelihood = pm.Multinomial("count_likelihood", n=total_count, p=count_prior, observed=counts_per_class)
+
+            true_class_size_hyperprior = pm.Exponential("true_class_size_hyperprior", 1/100)
+            true_class_bias_hyperprior = pm.Beta("true_class_bias_hyperprior", 1, 1)
+            true_class_alpha_hyperprior = pm.Deterministic("true_class_alpha_hyperprior", true_class_size_hyperprior * true_class_bias_hyperprior)
+            true_class_beta_hyperprior = pm.Deterministic("true_class_beta_hyperprior", true_class_size_hyperprior * (1-true_class_bias_hyperprior))
+
+            false_class_size_hyperprior = pm.Exponential("false_class_size_hyperprior", 1/100)
+            false_class_bias_hyperprior = pm.Beta("false_class_bias_hyperprior", 1, 1)
+            false_class_alpha_hyperprior = pm.Deterministic("false_class_alpha_hyperprior", false_class_size_hyperprior * false_class_bias_hyperprior)
+            false_class_beta_hyperprior = pm.Deterministic("false_class_beta_hyperprior", false_class_size_hyperprior * (1-false_class_bias_hyperprior))
+
+            for class_index in range(num_classes):
+
+                n_obs_true = count_likelihood[class_index]
+                n_obs_false = pm.math.sum(count_likelihood) - n_obs_true
+
+                true_fraction_prior = pm.Beta("true_class_" + _prior_name(class_index), alpha=true_class_alpha_hyperprior, beta=true_class_beta_hyperprior)
+                false_fraction_prior = pm.Beta("false_class_" + _prior_name(class_index), alpha=false_class_alpha_hyperprior, beta=false_class_beta_hyperprior)
+
+                true_likelihood = pm.Binomial("true_class_" + _likelihood_name(class_index), p=true_fraction_prior, n=n_obs_true, observed=observed_cms[class_index].tp)
+                false_likelihood = pm.Binomial("false_class_" + _likelihood_name(class_index), p=false_fraction_prior, n=n_obs_false, observed=observed_cms[class_index].tn)
+
+            return model
+
+
+    def posterior_recalls(self, trace, class_index):
+        """Compute the recalls from the multinomial parameters."""
+        return concatenate_chains(trace["true_class_" + _prior_name(class_index)])
+
+    def posterior_precisions(self, trace, class_index):
+        """Compute the precisions from the multinomial parameters."""
+        count_priors = concatenate_chains(trace["count_prior"])
+
+        true_fraction_prior = concatenate_chains(trace["true_class_" + _prior_name(class_index)])
+        true_counts = count_priors[:, class_index]
+        true_positives = true_counts*true_fraction_prior
+
+        false_fraction_prior = concatenate_chains(trace["false_class_" + _prior_name(class_index)])
+        false_counts = np.sum(count_priors, axis=1) - true_counts
+
+        false_positives = false_counts*(1.0 - false_fraction_prior)
+        return true_positives/(true_positives + false_positives)
+
