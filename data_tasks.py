@@ -9,7 +9,9 @@ from build_neural_networks import Resnet18, SimpleCNN, Classifier
 from load_datasets import FashionMNISTLoader, CIFAR10Loader, CIFAR100Loader, GTSRBLoader, MapillaryLoader, MNISTLoader, StanfordCarsLoader, Flowers102Loader
 
 MODEL_DIRECTORY = "trained_models"
-EVAL_DIRECTORY = "confusion_matrices"
+CM_DIRECTORY = "confusion_matrices"
+FIT_CM_DIRECTORY = os.path.join(CM_DIRECTORY, "fit_confusion_matrices")
+TEST_CM_DIRECTORY = os.path.join(CM_DIRECTORY, "test_confusion_matrices")
 DEVICE_CPU = "cpu"
 DEVICE_GPU = "cuda"
 DEVICE = (DEVICE_GPU if torch.cuda.is_available() else DEVICE_CPU)
@@ -76,15 +78,36 @@ class DataTask:
     @classmethod
     def confusion_matrix_path(cls):
         cm_name = f"{cls.name()}_confusion_matrix.npy"
-        return os.path.join(EVAL_DIRECTORY, cm_name)
+        return os.path.join(CM_DIRECTORY, cm_name)
 
     @classmethod
-    def get_confusion_matrix(cls) -> np.array:
-        cm_path = cls.confusion_matrix_path()
+    def fit_confusion_matrix_path(cls):
+        cm_name = f"{cls.name()}_fit_confusion_matrix.npy"
+        return os.path.join(FIT_CM_DIRECTORY, cm_name)
+
+    @classmethod
+    def test_confusion_matrix_path(cls):
+        cm_name = f"{cls.name()}_test_confusion_matrix.npy"
+        return os.path.join(TEST_CM_DIRECTORY, cm_name)
+
+    @classmethod
+    def _get_confusion_matrix(cls, cm_path: str) -> np.ndarray:
         if not os.path.isfile(cm_path):
-            raise ValueError(f"No confusion matrix for {cls.name()} found. Evaluate the neural network solving this task, and train it if this is not yet done.")
-        total_cm = np.load(cls.confusion_matrix_path())
-        return total_cm
+            raise ValueError(f"No confusion matrix at {cm_path} found for {cls.name()}. Evaluate the neural network solving this task, train it if this is not yet done, and split the confusion matrix with the available script if needed.")
+        cm = np.load(cm_path)
+        return cm
+
+    @classmethod
+    def confusion_matrix(cls) -> np.ndarray:
+        return cls._get_confusion_matrix(cls.confusion_matrix_path())
+
+    @classmethod
+    def fit_confusion_matrix(cls) -> np.ndarray:
+        return cls._get_confusion_matrix(cls.fit_confusion_matrix_path())
+
+    @classmethod
+    def test_confusion_matrix(cls) -> np.ndarray:
+        return cls._get_confusion_matrix(cls.test_confusion_matrix_path())
 
     @staticmethod
     def _build_model():
@@ -253,7 +276,7 @@ class SimpleSyntheticTask(DataTask):
         return "SimpleSynthetic"
 
     @classmethod
-    def get_confusion_matrix(cls):
+    def confusion_matrix(cls):
         cm = []
         for class_ in range(cls.n_classes):
             p_vector = [(1 - cls.p_tp) / (cls.n_classes - 1) for _ in range(cls.n_classes)]

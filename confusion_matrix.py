@@ -60,14 +60,19 @@ class BinaryCM:
         r = self.recall()
         return divide_safe(2*p*r, p + r)
 
+def check_valid_confusion_matrix(matrix: np.ndarray) -> bool:
+    if len(matrix.shape) != 2:
+        raise ValueError(f"Confusion matrix must be of rank 2, but a matrix of rank {len(matrix.shape)} was given.")
+    if matrix.shape[0] != matrix.shape[1]:
+        raise ValueError(f"Confusion matrix must be a square matrix, but a {matrix.shape[0]}X{matrix.shape[1]} matrix is given.")
+    if np.any(matrix < 0):
+        raise ValueError("All elements in a confusion matrix must be positive.")
+    return True
 
 def convert_to_binary(confusion_matrix: np.ndarray, class_index: int):
     """Convert a numpy confusion matrix into a binary confusion matrix."""
     # Verify that the given confusion is of rank two.
-    if len(confusion_matrix.shape) != 2:
-        raise ValueError(f"Confusion matrix must be of rank 2, but a matrix of rank {len(confusion_matrix.shape)} was given.")
-    if confusion_matrix.shape[0] != confusion_matrix.shape[1]:
-        raise ValueError(f"Confusion matrix must be a square matrix, but a {confusion_matrix.shape[0]}X{confusion_matrix.shape[1]} matrix is given.")
+    check_valid_confusion_matrix(confusion_matrix)
     tp = confusion_matrix[class_index, class_index]
     fp = np.sum(np.delete(confusion_matrix[class_index], class_index))
     fn = np.sum(np.delete(confusion_matrix, class_index, axis=0)[:, class_index])

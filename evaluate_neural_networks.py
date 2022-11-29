@@ -5,7 +5,7 @@ from torchmetrics.classification import MulticlassConfusionMatrix
 import numpy as np
 
 
-from data_tasks import DataTask, TASK_REGISTER, DEVICE, DEVICE_CPU, EVAL_DIRECTORY
+from data_tasks import DataTask, TASK_REGISTER, DEVICE, DEVICE_CPU, CM_DIRECTORY
 
 def compute_confusion_matrix(data_task: DataTask):
     """Compute the confusion matrix on the evaluation data for a given task and its model.
@@ -46,7 +46,7 @@ def compute_confusion_matrix(data_task: DataTask):
 
 
 if __name__ == "__main__":
-    os.makedirs(EVAL_DIRECTORY, exist_ok=True)
+    os.makedirs(CM_DIRECTORY, exist_ok=True)
     for task in TASK_REGISTER:
         print(f"Computing confusion matrix for {task.name()} task.")
         cm = compute_confusion_matrix(task)

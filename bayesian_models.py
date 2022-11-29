@@ -78,7 +78,7 @@ class BayesianModel:
         self._data_task = data_task
     
         # Load the observed confusion matrix for the given task.
-        total_cm = data_task.get_confusion_matrix()
+        total_cm = data_task.confusion_matrix()
 
         # Convert the total confusion matrix to a set of binary one-vs-all confusion matrices for each class.
         # Store the binary confusion matrices for plotting the observed values later on.
