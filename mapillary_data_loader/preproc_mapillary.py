@@ -1,4 +1,8 @@
 import os
+import sys
+main_directory = os.path.dirname(os.path.dirname(os.path.abspath( __file__)))
+sys.path.insert(0, main_directory)
+
 import json
 import math
 from PIL import Image
@@ -7,7 +11,7 @@ from torchvision.utils import save_image
 from torch.utils.data import Dataset, DataLoader
 from mapillary_data_loader.bbox import Bbox
 
-BASE_PATH = "/home/willem/code/bayesian-evaluation/datasets/mapillary/"
+BASE_PATH = f"{main_directory}/datasets/mapillary/"
 ANNOTATION_DIRECTORY = os.path.join(BASE_PATH, "mtsd_v2_fully_annotated/annotations/")
 TRAIN_IMAGES_DIRECTORY = os.path.join(BASE_PATH, "images_train/")
 VAL_IMAGES_DIRECTORY = os.path.join(BASE_PATH, "images_train/")
