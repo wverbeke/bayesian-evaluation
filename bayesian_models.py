@@ -305,7 +305,6 @@ class LogRegressionModel(MultinomialLikelihoodModel):
 
             return model
 
-
 @register_bayesian_model
 class SimpleFractionModel(BayesianModel):
 
@@ -333,39 +332,34 @@ class SimpleFractionModel(BayesianModel):
             false_class_beta_hyperprior = pm.Deterministic("false_class_beta_hyperprior", false_class_size_hyperprior * (1-false_class_bias_hyperprior))
 
             # train_counts = [cls.data_task.num_train_samples(class_index) for class_index in range(num_classes)]
+            true_class_prior = pm.Beta("true_class_prior", alpha=true_class_alpha_hyperprior, beta=true_class_beta_hyperprior, shape=num_classes)
+            false_class_prior = pm.Beta("false_class_prior", alpha=false_class_alpha_hyperprior, beta=false_class_beta_hyperprior, shape=num_classes)
 
-            for class_index in range(num_classes):
+            n_obs_true = np.array(counts_per_class)
+            n_obs_false = total_count - n_obs_true
 
-                # num_train_true = train_counts[class_index]
+            observed_tps = np.array([cl.tp for cl in observed_cms])
+            observed_tns = np.array([cl.tn for cl in observed_cms])
 
-                n_obs_true = counts_per_class[class_index]
-                n_obs_false = total_count - n_obs_true
-
-                true_fraction_prior = pm.Beta("true_class_" + _prior_name(class_index), alpha=true_class_alpha_hyperprior, beta=true_class_beta_hyperprior)
-                false_fraction_prior = pm.Beta("false_class_" + _prior_name(class_index), alpha=false_class_alpha_hyperprior, beta=false_class_beta_hyperprior)
-
-                true_likelihood = pm.Binomial("true_class_" + _likelihood_name(class_index), p=true_fraction_prior, n=n_obs_true, observed=observed_cms[class_index].tp)
-                false_likelihood = pm.Binomial("false_class_" + _likelihood_name(class_index), p=false_fraction_prior, n=n_obs_false, observed=observed_cms[class_index].tn)
-
+            true_class_fraction = pm.Binomial("true_class_fraction", p=true_class_prior, n=n_obs_true, observed=observed_tps)
+            false_class_fraction = pm.Binomial("false_class_fraction", p=false_class_prior, n=n_obs_false, observed=observed_tns)
             return model
-
 
     def posterior_recalls(self, trace, class_index):
         """Compute the recalls from the multinomial parameters."""
-        true_fraction_prior = trace["true_class_" + _prior_name(class_index)]
+        true_fraction_prior = trace["true_class_prior"][:, :, class_index]
         return concatenate_chains(true_fraction_prior)
 
     def posterior_precisions(self, trace, class_index):
         """Compute the precisions from the multinomial parameters."""
         true_eval_samples = self.num_eval_samples_per_class(class_index)
-        true_fraction_prior = concatenate_chains(trace["true_class_" + _prior_name(class_index)])
+        true_fraction_prior = concatenate_chains(trace["true_class_prior"][:, :, class_index])
         true_positives = true_eval_samples*true_fraction_prior
 
         false_eval_samples = sum(self.num_eval_samples_per_class(c) for c in range(self.data_task.num_classes()) if c != class_index)
-        false_fraction_prior = concatenate_chains(trace["false_class_" + _prior_name(class_index)])
+        false_fraction_prior = concatenate_chains(trace["false_class_prior"][:, :, class_index])
         false_positives = false_eval_samples*(1.0 - false_fraction_prior)
         return true_positives/(true_positives + false_positives)
-
 
 
 #TODO refactor this to reuse code from SimpleCountModel
