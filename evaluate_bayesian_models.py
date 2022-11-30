@@ -79,6 +79,7 @@ def parse_args():
     """Command line arguments for running the evaluation of the Bayesian models."""
     parser = argparse.ArgumentParser(description="Arguments for the evaluation of Bayesian models used to descripe the performance metrics of neural networks.")
     parser.add_argument("--num-samples-per-core", type=int, default=2000, help="Number of elements in the Markov chain generated on each cpu core to evaluate the Bayesian model.")
+    parser.add_argument("--num-cores", type=int, default=None, help="Number of CPU cores to use for sampling.")
     parser.add_argument("--reevaluate", action="store_true", help="Whether to rerun the evaluation of models that have an existing set of sampled Markov chains or posterios samples. By default existing evaluation results will be reused.")
     parser.add_argument("--tasks", choices=get_task_names(), nargs="+", help="Only evaluate the bayesian model for a specific data task. By default all tasks are evaluated.")
     parser.add_argument("--bayesian-models", choices=get_bayesian_model_names(), nargs="+", help="Only evaluate the particular Bayesian models specified here. By default all Bayesian models are evaluated.")
@@ -110,7 +111,7 @@ if __name__ == "__main__":
             b_models.append(bm)
             if not bm.trace_exists() or args.reevaluate:
                 tic = time.time()
-                trace = bm.trace(num_samples_per_core=args.num_samples_per_core)
+                trace = bm.trace(num_samples_per_core=args.num_samples_per_core, num_cores=args.num_cores)
                 print(f"Tracing {model_class.name()} took {time.time() - tic:.2f} s.")
             else:
                 print("Trace already exists.")

@@ -123,11 +123,13 @@ class BayesianModel:
         """Build the Bayesian model."""
 
     # TODO: rename to sample
-    def trace(self, num_samples_per_core: int):
+    def trace(self, num_samples_per_core: int, num_cores: Optional[int] = None):
         """Sample a Markov chain from the Bayesian model on each CPU core."""
+        if num_cores is None:
+            num_cores = os.cpu_count()
         with self._model:
             # Build a Markov chain of samples on each cpu core.
-            trace = pm.sample(draws=num_samples_per_core, cores=os.cpu_count())
+            trace = pm.sample(draws=num_samples_per_core, cores=num_cores)
 
             # Write the Markov chain to disk.
             os.makedirs(TRACE_DIRECTORY, exist_ok=True)
