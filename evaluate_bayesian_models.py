@@ -8,6 +8,7 @@ The statistical model consists of three stages:
 3. A multinomial likelihood models the observed counts in the confusion matrix for a given class.
 """
 import argparse
+import time
 from typing import List, Union, Optional
 import os
 from abc import abstractmethod
@@ -101,12 +102,16 @@ if __name__ == "__main__":
 
     for task in tasks_to_evaluate:
         print("#"*50)
-        print(f"Evaluating bayesian models for {task.name()}")
+        print(f"Evaluating bayesian models for {task.name()}.")
         b_models = []
         for model_class in models_to_evaluate:
-            print(f"Sampling for {model_class.name()}")
+            print(f"Analyzing {model_class.name()}")
             bm = model_class(task)
             b_models.append(bm)
             if not bm.trace_exists() or args.reevaluate:
+                tic = time.time()
                 trace = bm.trace(num_samples_per_core=args.num_samples_per_core)
+                print(f"Tracing {model_class.name()} took {time.time() - tic:.2f} s.")
+            else:
+                print("Trace already exists.")
         plot_posterior_metrics(b_models)
