@@ -265,9 +265,11 @@ class SimpleSyntheticTask(DataTask):
     n_classes = 10
     n_samples_per_class = 10
     p_tp = 0.9
+    seed = 42
 
-    def classes(self):
-        return [str(i) for i in range(self.n_classes)]
+    @classmethod
+    def classes(cls):
+        return [str(i) for i in range(cls.n_classes)]
 
     def data_loader():
         raise NotImplementedError
@@ -277,11 +279,16 @@ class SimpleSyntheticTask(DataTask):
 
     @classmethod
     def confusion_matrix(cls):
+        rng = np.random.default_rng(cls.seed)  # We want to get the same CM for multiple models
         cm = []
         for class_ in range(cls.n_classes):
             p_vector = [(1 - cls.p_tp) / (cls.n_classes - 1) for _ in range(cls.n_classes)]
             p_vector[class_] = cls.p_tp
-            class_cm = np.random.multinomial(cls.n_samples_per_class, p_vector)
+            class_cm = rng.multinomial(cls.n_samples_per_class, p_vector)
             cm.append(class_cm)
         cm = np.array(cm)
         return cm
+
+    @classmethod
+    def num_train_samples(cls, class_index: int):
+        return 1  # :)
