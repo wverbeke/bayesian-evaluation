@@ -179,13 +179,9 @@ class MultinomialLikelihoodModel(BayesianModel):
     in a generic fashion.
     """
     def _posterior_multinomial_params(self, trace, class_index):
-        """Extract samples from the posterior parameters describin the multinomial."""
-        # After sampling the prior is the posterior.
-        posterior_name = _prior_name(class_index)
-        sampled_chains = trace[posterior_name]
-
+        """Extract samples from the posterior parameters describing the multinomial."""
         # For each Markov chain (one per CPU core) a separate array with sampled confusion matrices is returned.
-        return concatenate_chains(sampled_chains)
+        return concatenate_chains(trace["prior"][:, :, class_index])
 
     def posterior_recalls(self, trace, class_index):
         """Compute the recalls from the multinomial parameters."""
@@ -224,12 +220,12 @@ class SimpleModel(MultinomialLikelihoodModel):
         # Compute the number of classes and the total count.
         num_classes = len(observed_cms)
         total_count = np.sum(observed_cms[0].numpy())
+        observed_array = np.array([cm.numpy() for cm in observed_cms])
 
         with pm.Model() as model:
-            for class_index in range(num_classes):
-                # A confusion matrix has 4 entries so we need 4 priors.
-                prior = pm.Dirichlet(_prior_name(class_index), a=np.ones(4))
-                likelihood = pm.Multinomial(_likelihood_name(class_index), n=total_count, p=prior, observed=observed_cms[class_index].numpy())
+            # A confusion matrix has 4 entries so we need 4 priors.
+            prior = pm.Dirichlet("prior", a=np.ones((num_classes, 4)))
+            likelihood = pm.Multinomial("likelihood", n=total_count, p=prior, observed=observed_array)
         return model
 
 
