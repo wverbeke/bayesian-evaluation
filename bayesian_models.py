@@ -154,7 +154,7 @@ class BayesianModel:
 
     def num_train_samples_per_class(self, class_index: int) -> int:
         """Number of training samples per class."""
-        return self.data_task.num_train_samples_per_class
+        return self.data_task.num_train_samples_per_class(class_index)
 
     def observed_binary_cm(self, class_index: int) -> BinaryCM:
         """Retrieve the observed binary confusion matrix for a particular class."""
@@ -294,3 +294,67 @@ class FractionCountModel(BayesianModel):
         false_positives = false_counts*(1.0 - false_fraction_prior)
         return true_positives/(true_positives + false_positives)
 
+
+@register_bayesian_model
+class LinearTrainSizeModel(BayesianModel):
+
+    @classmethod
+    def name(cls):
+        return "linear_train_size_model"
+
+    def build_model(self, observed_cms: List[BinaryCM]):
+
+        num_classes = len(observed_cms)
+        total_count = np.sum(observed_cms[0].numpy())
+
+        counts_per_class = np.array([(cm.tp + cm.fn) for cm in observed_cms])
+
+
+        with pm.Model() as model:
+            count_prior = pm.Dirichlet("count_prior", a=np.ones(num_classes))
+            count_likelihood = pm.Multinomial("count_likelihood", n=total_count, p=count_prior, observed=counts_per_class)
+
+            n_obs_true = count_likelihood
+            n_obs_false = pm.math.sum(count_likelihood) - n_obs_true
+            observed_tps = np.array([cl.tp for cl in observed_cms])
+            observed_tns = np.array([cl.tn for cl in observed_cms])
+
+            num_train_samples = np.array([self.num_train_samples_per_class(i) for i in range(num_classes)])
+            log_train_size = np.log(num_train_samples + 1)
+
+            true_class_alpha_intercept = pm.Exponential("true_class_alpha_intercept", 1/100)
+            true_class_beta_intercept = pm.Exponential("true_class_beta_intercept", 1/100)
+            true_class_alpha_slope = pm.Exponential("true_class_alpha_slope", 1/100)
+            true_class_beta_slope = pm.Exponential("true_class_beta_slope", 1/100)
+
+            false_class_alpha_intercept = pm.Exponential("false_class_alpha_intercept", 1/100)
+            false_class_beta_intercept = pm.Exponential("false_class_beta_intercept", 1/100)
+            false_class_alpha_slope = pm.Exponential("false_class_alpha_slope", 1/100)
+            false_class_beta_slope = pm.Exponential("false_class_beta_slope", 1/100)
+
+            true_class_prior = pm.Beta("true_class_prior", alpha=true_class_alpha_intercept + true_class_alpha_slope * log_train_size, beta=true_class_beta_intercept + true_class_beta_slope * log_train_size, shape=num_classes)
+            false_class_prior = pm.Beta("false_class_prior", alpha=false_class_alpha_intercept + false_class_alpha_slope * log_train_size, beta=false_class_beta_intercept + false_class_beta_slope * log_train_size, shape=num_classes)
+
+            true_class_fraction = pm.Binomial("true_class_fraction", p=true_class_prior, n=n_obs_true, observed=observed_tps)
+            false_class_fraction = pm.Binomial("false_class_fraction", p=false_class_prior, n=n_obs_false, observed=observed_tns)
+
+            return model
+
+
+    def posterior_recalls(self, trace, class_index):
+        """Compute the recalls from the multinomial parameters."""
+        return concatenate_chains(trace["true_class_prior"][:, :, class_index])
+
+    def posterior_precisions(self, trace, class_index):
+        """Compute the precisions from the multinomial parameters."""
+        count_priors = concatenate_chains(trace["count_prior"])
+
+        true_fraction_prior = concatenate_chains(trace["true_class_prior"][:, :, class_index])
+        true_counts = count_priors[:, class_index]
+        true_positives = true_counts*true_fraction_prior
+
+        false_fraction_prior = concatenate_chains(trace["false_class_prior"][:, :, class_index])
+        false_counts = np.sum(count_priors, axis=1) - true_counts
+
+        false_positives = false_counts*(1.0 - false_fraction_prior)
+        return true_positives/(true_positives + false_positives)

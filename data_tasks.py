@@ -290,5 +290,5 @@ class SimpleSyntheticTask(DataTask):
         return cm
 
     @classmethod
-    def num_train_samples(cls, class_index: int):
+    def num_train_samples_per_class(cls, class_index: int):
         return 1  # :)
