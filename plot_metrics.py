@@ -44,6 +44,5 @@ def plot_posterior_comparison(model_posteriors, model_names, plot_path, metric_n
         plt.annotate("Observed\ntest", xy=(observed_test, (ymax - ymin)*0.05), xytext=(observed_test, (ymax - ymin)*0.4), arrowprops={"facecolor":"red", "width":0.02}, ha="center")
 
     if not "." in plot_path:
-        plt.savefig(plot_path + ".pdf")
         plt.savefig(plot_path + ".png")
     plt.clf()
