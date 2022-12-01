@@ -155,11 +155,12 @@ class BayesianModel:
     @abstractmethod
     def name(cls):
         """Name for this class of Bayesian models."""
-
+        raise NotImplementedError()
 
     @abstractmethod
     def _build_model(self, observed_cms: List[BinaryCM]):
         """Build the Bayesian model."""
+        raise NotImplementedError()
 
     @abstractmethod
     def posterior_recalls(self, trace, class_index):
@@ -167,6 +168,7 @@ class BayesianModel:
 
         This has to be implemented for each model because it depends on the model details.
         """
+        raise NotImplementedError()
 
     @abstractmethod
     def posterior_precisions(self, trace, class_index):
@@ -174,6 +176,7 @@ class BayesianModel:
 
         This has to be implemented for each model because it depends on the model details.
         """
+        raise NotImplementedError()
 
 
 class MultinomialLikelihoodModel(BayesianModel):
