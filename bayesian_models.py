@@ -103,11 +103,6 @@ class BayesianModel:
         for class_index, _ in enumerate(total_cm):
             self._num_eval_samples_per_class.append(np.sum(total_cm[:, class_index]))
 
-    @classmethod
-    @abstractmethod
-    def name(cls):
-        """Name for this class of Bayesian models."""
-
     @property
     def data_task(self) -> DataTask:
         """Retrieve the underlying data task."""
@@ -120,10 +115,6 @@ class BayesianModel:
     def plot_file_path(self, metric_name: str, class_index: int) -> str:
         """Path to plots."""
         return os.path.join(PLOT_DIRECTORY, f"plot_{metric_name}_{self.name()}_{self._data_task.name()}_class_{class_index}")
-
-    @abstractmethod
-    def build_model(self, observed_cms: List[BinaryCM]):
-        """Build the Bayesian model."""
 
     # TODO: rename to sample
     def trace(self, num_samples_per_core: int, num_cores: Optional[int] = None):
@@ -159,6 +150,16 @@ class BayesianModel:
     def observed_binary_cm(self, class_index: int) -> BinaryCM:
         """Retrieve the observed binary confusion matrix for a particular class."""
         return self._binary_cms[class_index]
+
+    @classmethod
+    @abstractmethod
+    def name(cls):
+        """Name for this class of Bayesian models."""
+
+
+    @abstractmethod
+    def _build_model(self, observed_cms: List[BinaryCM]):
+        """Build the Bayesian model."""
 
     @abstractmethod
     def posterior_recalls(self, trace, class_index):
@@ -218,7 +219,7 @@ class SimpleModel(MultinomialLikelihoodModel):
     def name(cls):
         return "simple_model"
 
-    def build_model(self, observed_cms: List[BinaryCM]):
+    def _build_model(self, observed_cms: List[BinaryCM]):
         """Build a simple model in which each class has an independent prior on its confusion matrix."""
         # Compute the number of classes and the total count.
         num_classes = len(observed_cms)
@@ -240,7 +241,7 @@ class FractionCountModel(BayesianModel):
         return "fraction_count_model"
 
     @classmethod
-    def build_model(cls, observed_cms: List[BinaryCM]):
+    def _build_model(cls, observed_cms: List[BinaryCM]):
 
         num_classes = len(observed_cms)
         total_count = np.sum(observed_cms[0].numpy())
@@ -302,7 +303,7 @@ class LinearTrainSizeModel(BayesianModel):
     def name(cls):
         return "linear_train_size_model"
 
-    def build_model(self, observed_cms: List[BinaryCM]):
+    def _build_model(self, observed_cms: List[BinaryCM]):
 
         num_classes = len(observed_cms)
         total_count = np.sum(observed_cms[0].numpy())
