@@ -50,12 +50,27 @@ def find_bayesian_model(name: str):
         index = names.index(name)
         return BAYESIAN_MODEL_REGISTER[index]
     except ValueError:
-        raise ValueError(f"No bayesian model with name {name}")
+        raise ValueError(f"No Bayesian model with name {name}")
 
 
 def concatenate_chains(markov_chains: np.ndarray) -> np.ndarray:
     """Concatenate the markov chains generated on each CPU core."""
     return np.concatenate(markov_chains, axis=0)
+
+
+def compute_recalls(cm_array: np.ndarray) -> np.ndarray:
+    """Compute recalls from a set of confusion matrices of the form Nx4."""
+    tp_array = cm_array[:, 0]
+    fn_array = cm_array[:, 2]
+    return divide_safe(tp_array, tp_array + fn_array)
+
+
+def compute_precisions(cm_array: np.ndarray) -> np.ndarray:
+    """Compute precisions from a set of confusion matrices of the form Nx4."""
+    tp_array = cm_array[:, 0]
+    fp_array = cm_array[:, 1]
+    return divide_safe(tp_array, tp_array + fp_array)
+
 
 
 class BayesianModel:
@@ -103,13 +118,13 @@ class BayesianModel:
         """Retrieve the underlying data task."""
         return self._data_task
 
-    def trace_file_path(self) -> str:
-        """Path to the sampled Markov chains."""
-        return os.path.join(TRACE_DIRECTORY, f"trace_{self.name()}_{self._data_task.name()}.cdf")
-
     def plot_file_path(self, metric_name: str, class_index: int) -> str:
         """Path to plots."""
         return os.path.join(PLOT_DIRECTORY, f"plot_{metric_name}_{self.name()}_{self._data_task.name()}_class_{class_index}")
+
+    def trace_file_path(self) -> str:
+        """Path to the sampled Markov chains."""
+        return os.path.join(TRACE_DIRECTORY, f"trace_{self.name()}_{self._data_task.name()}.cdf")
 
     # TODO: rename to sample
     def trace(self, num_samples_per_core: int, num_cores: Optional[int] = None):
@@ -133,8 +148,12 @@ class BayesianModel:
     def load_trace(self):
         """Load the sampled Markov chain."""
         if not self.trace_exists():
-            raise ValueError("Trying to load trace for bayesian model {self.name()} while it does not exist.")
+            raise ValueError("Trying to load trace for Bayesian model {self.name()} while it does not exist.")
         return xr.open_dataset(self.trace_file_path())
+
+    def posterior_predictive_file_path(self) -> str:
+        """Path to stored posterior predictive samples."""
+        return os.path.join(PP_DIRECTORY, f"posterior_predictive_{self.name()}_{self._data_task.name()}.cdf")
 
     def sample_posterior_predictive(self, trace):
         """Generate posterior predictive samples, given a set of posterior samples."""
@@ -143,9 +162,19 @@ class BayesianModel:
 
             # Write the posterior predictive samples to disk.
             os.makedirs(PP_DIRECTORY, exist_ok=True)
-            print(pp_samples)
+            pp_samples.posterior_predictive.to_netcdf(self.posterior_predictive_file_path())
 
+        return pp_samples
 
+    def posterior_predictive_exists(self) -> bool:
+        """Verify that posterior predictive samples were already written to disk."""
+        return os.path.isfile(self.posterior_predictive_file_path())
+
+    def load_posterior_predictive(self):
+        """Load pregenerated posterior predictive samples."""
+        if not self.posterior_predictive_exists():
+            raise ValueError("Trying to load posterior predictive samples for Bayesian model {self.name()} while none exist.")
+        return xr.open_dataset(self.posterior_predictive_file_path())
 
     def num_eval_samples_per_class(self, class_index: int) -> int:
         """Number of evaluation samples per class."""
@@ -171,7 +200,7 @@ class BayesianModel:
         raise NotImplementedError()
 
     @abstractmethod
-    def posterior_recalls(self, trace, class_index):
+    def posterior_recalls(self, trace, class_index) -> np.ndarray:
         """Extract posterior recall values from a simulated trace.
 
         This has to be implemented for each model because it depends on the model details.
@@ -179,20 +208,33 @@ class BayesianModel:
         raise NotImplementedError()
 
     @abstractmethod
-    def posterior_precisions(self, trace, class_index):
+    def posterior_precisions(self, trace, class_index) -> np.ndarray:
         """Extract posterior precision values from a simulated trace.
 
         This has to be implemented for each model because it depends on the model details.
         """
         raise NotImplementedError()
 
+    # TODO: Refactor this so that we can return BinaryCM objects. 
+    # For that to be possible the BinaryCM class should be able to represent arrays of CMS.
     @abstractmethod
-    def posterior_predictive_cm(self, trace, class_index):
+    def posterior_predictive_cms(self, pp_samples, class_index) -> np.ndarray:
         """Extract a posterior predictive confusion matrix.
 
         This has to be implemented for each model because it depends on the model details.
         """
         raise NotImplementedError()
+
+    def posterior_predictive_recalls(self, pp_samples, class_index) -> np.ndarray:
+        """Extract posterior predictive recall values."""
+        cms = self.posterior_predictive_cms(pp_samples=pp_samples, class_index=class_index)
+        return compute_recalls(cms)
+
+    def posterior_predictive_precisions(self, pp_samples, class_index) -> np.ndarray:
+        """Extract posterior predictive precision values."""
+        cms = self.posterior_predictive_cms(pp_samples=pp_samples, class_index=class_index)
+        return compute_precisions(cms)
+
 
 
 class MultinomialLikelihoodModel(BayesianModel):
@@ -209,16 +251,19 @@ class MultinomialLikelihoodModel(BayesianModel):
     def posterior_recalls(self, trace, class_index):
         """Compute the recalls from the multinomial parameters."""
         cm_array = self._posterior_multinomial_params(trace=trace, class_index=class_index)
-        tp_array = cm_array[:, 0]
-        fn_array = cm_array[:, 2]
+        return compute_recalls(cm_array=cm_array)
         return divide_safe(tp_array, tp_array + fn_array)
 
     def posterior_precisions(self, trace, class_index):
         """Compute the precisions from the multinomial parameters."""
         cm_array = self._posterior_multinomial_params(trace=trace, class_index=class_index)
-        tp_array = cm_array[:, 0]
-        fp_array = cm_array[:, 1]
-        return divide_safe(tp_array, tp_array + fp_array)
+        return compute_precisions(cm_array=cm_array)
+
+    def posterior_predictive_cms(self, pp_samples, class_index):
+        # The likelihood samples have shape N-chains X N-samples-per-chain X N-classes X 4
+        pp_cms = pp_samples["likelihood"]
+        pp_cms = concatenate_chains(pp_cms)
+        return pp_cms[:, class_index, :]
 
         
 @register_bayesian_model
@@ -313,6 +358,25 @@ class FractionCountModel(BayesianModel):
 
         false_positives = false_counts*(1.0 - false_fraction_prior)
         return true_positives/(true_positives + false_positives)
+
+    def posterior_predictive_cms(self, pp_samples, class_index):
+
+        # Counts has shape N-samples X N-classes after concatenation of chains.
+        counts = concatenate_chains(pp_samples["count_likelihood"])
+        true_counts = counts[:, class_index]
+        false_counts = np.sum(counts, axis=1) - true_counts
+        true_fractions = concatenate_chains(pp_samples["true_class_fraction"])
+        true_fractions = true_fractions[:, class_index]
+        false_fractions = concatenate_chains(pp_samples["false_class_fraction"])
+        false_fractions = false_fractions[:, class_index]
+
+        tps = true_fractions*true_counts
+        fns = (true_counts - tps)
+        tns = false_fractions*false_counts
+        fps = (false_counts - tns)
+        return np.concatenate([tps, fps, fns, tns])
+
+
 
 
 @register_bayesian_model
