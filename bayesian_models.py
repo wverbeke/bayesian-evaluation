@@ -20,22 +20,17 @@ from confusion_matrix import BinaryCM, convert_to_binary, divide_safe
 from data_tasks import TASK_REGISTER, DataTask, find_task, get_task_names
 from plot_metrics import plot_posterior_comparison
 
+# Location where posterior samples are stored.
 TRACE_DIRECTORY="mc_traces"
-POSTERIOR_DIRECTORY="posterior_samples"
+
+# Location where posterior predictive samples are stored.
+PP_DIRECTORY="posterior_samples"
+
+# Location where plots are stored.
 PLOT_DIRECTORY="plots"
 
 # Cutoff for logarithm calculations.
 LOG_CUTOFF=1e-4
-
-
-def _prior_name(class_index: int) -> str:
-    """Internal name of the priors in a Bayesian model."""
-    return f"prior_class_{class_index}"
-
-
-def _likelihood_name(class_index: int) -> str:
-    """Internal name of the likelihoods in a Bayesian model."""
-    return f"likelihood_class_{class_index}"
 
 
 # Make a register of all Bayesian models so they can be easily looped over later on.
@@ -93,7 +88,7 @@ class BayesianModel:
 
         # Build the Bayesian model with the observed confusion matrices.
         # The function the builds the model must be specified by the user for each concrete model.
-        self._model = self.build_model(observed_cms=self._binary_cms)
+        self._model = self._build_model(observed_cms=self._binary_cms)
 
         # Compute the number of entries in the evaluation set used for each class in the data sets
         # used to make the confusion matrices.
@@ -131,13 +126,26 @@ class BayesianModel:
         
         return trace
 
-    def load_trace(self):
-        """Load the sampled Markov chain."""
-        return xr.open_dataset(self.trace_file_path())
-
     def trace_exists(self) -> bool:
         """Verify that Markov chains for the model were already written to disk."""
         return os.path.isfile(self.trace_file_path())
+
+    def load_trace(self):
+        """Load the sampled Markov chain."""
+        if not self.trace_exists():
+            raise ValueError("Trying to load trace for bayesian model {self.name()} while it does not exist.")
+        return xr.open_dataset(self.trace_file_path())
+
+    def sample_posterior_predictive(self, trace):
+        """Generate posterior predictive samples, given a set of posterior samples."""
+        with self._model:
+            pp_samples = pm.sample_posterior_predictive(trace=trace)
+
+            # Write the posterior predictive samples to disk.
+            os.makedirs(PP_DIRECTORY, exist_ok=True)
+            print(pp_samples)
+
+
 
     def num_eval_samples_per_class(self, class_index: int) -> int:
         """Number of evaluation samples per class."""
@@ -173,6 +181,14 @@ class BayesianModel:
     @abstractmethod
     def posterior_precisions(self, trace, class_index):
         """Extract posterior precision values from a simulated trace.
+
+        This has to be implemented for each model because it depends on the model details.
+        """
+        raise NotImplementedError()
+
+    @abstractmethod
+    def posterior_predictive_cm(self, trace, class_index):
+        """Extract a posterior predictive confusion matrix.
 
         This has to be implemented for each model because it depends on the model details.
         """
