@@ -23,7 +23,7 @@ from plot_metrics import plot_posterior_comparison
 from bayesian_models import BayesianModel, BAYESIAN_MODEL_REGISTER, get_bayesian_model_names, find_bayesian_model, PLOT_DIRECTORY
 
 
-def plot_posterior_metrics(bayesian_models):
+def plot_posterior_metrics(bayesian_models, separate_test_matrix):
     if len(bayesian_models) < 2:
         raise ValueError("There should be at least two Bayesian models to compared.")
 
@@ -36,20 +36,26 @@ def plot_posterior_metrics(bayesian_models):
     if not all((b.trace_exists() for b in bayesian_models)):
         raise ValueError("Posterior traces must be sampled for each plotted model.")
 
-
     # All models are assumed to operate on the same task.
     model_names = [b.name() for b in bayesian_models]
     task_name = bayesian_models[0].data_task.name()
     os.makedirs(os.path.join(PLOT_DIRECTORY, task_name), exist_ok=True)
 
-
     for class_index, class_name in enumerate(classes):
+
+        # Posterior distributions to plot.
         recall_arrays = []
         precision_arrays = []
         for b in bayesian_models:
             trace = b.load_trace()
             recall_arrays.append(b.posterior_recalls(trace=trace, class_index=class_index))
             precision_arrays.append(b.posterior_precisions(trace=trace, class_index=class_index))
+        
+        # If needed convert the test confusion matric to a one-vs-all confusion matrix for this
+        # class.
+        test_cm = None
+        if separate_test_matrix:
+            test_cm = convert_to_binary(confusion_matrix=b.data_task.test_confusion_matrix(), class_index=class_index)
 
         plot_posterior_comparison(
             model_posteriors=recall_arrays,
@@ -62,7 +68,8 @@ def plot_posterior_metrics(bayesian_models):
             # Given that all models work on the same task, they have the same underlying observed confusion matrix
             # and class counts.
             num_class_samples=b.num_eval_samples_per_class(class_index),
-            observed=b.observed_binary_cm(class_index).recall()
+            observed_fit=b.observed_binary_cm(class_index).recall(),
+            observed_test=test_cm.recall() if test_cm else None
         )
         plot_posterior_comparison(
             model_posteriors=precision_arrays,
@@ -72,7 +79,8 @@ def plot_posterior_metrics(bayesian_models):
             task_name=task_name,
             class_name=class_name,
             num_class_samples=b.num_eval_samples_per_class(class_index),
-            observed=b.observed_binary_cm(class_index).precision()
+            observed_fit=b.observed_binary_cm(class_index).precision(),
+            observed_test=test_cm.precision() if test_cm else None
         )
 
 def parse_args():
@@ -83,6 +91,7 @@ def parse_args():
     parser.add_argument("--reevaluate", action="store_true", help="Whether to rerun the evaluation of models that have an existing set of sampled Markov chains or posterios samples. By default existing evaluation results will be reused.")
     parser.add_argument("--tasks", choices=get_task_names(), nargs="+", help="Only evaluate the bayesian model for a specific data task. By default all tasks are evaluated.")
     parser.add_argument("--bayesian-models", choices=get_bayesian_model_names(), nargs="+", help="Only evaluate the particular Bayesian models specified here. By default all Bayesian models are evaluated.")
+    parser.add_argument("--separate-test-matrix", action="store_true", help="Whether to use a separate hold-out confusion matrix to test the Bayesian models against or not.")
 
     return parser.parse_args()
 
@@ -107,7 +116,7 @@ if __name__ == "__main__":
         b_models = []
         for model_class in models_to_evaluate:
             print(f"Analyzing {model_class.name()}")
-            bm = model_class(task)
+            bm = model_class(task, separate_test_matrix=args.separate_test_matrix)
             b_models.append(bm)
             if not bm.trace_exists() or args.reevaluate:
                 tic = time.time()
@@ -115,4 +124,4 @@ if __name__ == "__main__":
                 print(f"Tracing {model_class.name()} took {time.time() - tic:.2f} s.")
             else:
                 print("Trace already exists.")
-        plot_posterior_metrics(b_models)
+        plot_posterior_metrics(b_models, separate_test_matrix=args.separate_test_matrix)

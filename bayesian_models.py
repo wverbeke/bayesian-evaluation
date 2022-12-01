@@ -74,11 +74,14 @@ class BayesianModel:
     This class handles the loading and saving of Markov chains and posterior samples for a given
     Bayesian model and a data task (such as CIFAR10 of CIFAR100).
     """
-    def __init__(self, data_task):
+    def __init__(self, data_task, separate_test_matrix = False):
         self._data_task = data_task
     
         # Load the observed confusion matrix for the given task.
-        total_cm = data_task.confusion_matrix()
+        if separate_test_matrix:
+            total_cm = data_task.fit_confusion_matrix()
+        else:
+            total_cm = data_task.confusion_matrix()
 
         # Convert the total confusion matrix to a set of binary one-vs-all confusion matrices for each class.
         # Store the binary confusion matrices for plotting the observed values later on.

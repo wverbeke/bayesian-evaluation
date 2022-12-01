@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 
-def plot_posterior_comparison(model_posteriors, model_names, plot_path, metric_name, task_name, class_name, num_class_samples, observed, num_bins: int = 40):
+def plot_posterior_comparison(model_posteriors, model_names, plot_path, metric_name, task_name, class_name, num_class_samples, observed_fit, observed_test=None, num_bins: int = 40):
 
     if len(model_posteriors) < 1:
         raise ValueError("There must be at least one posterior to plot.")
@@ -38,7 +38,11 @@ def plot_posterior_comparison(model_posteriors, model_names, plot_path, metric_n
     ax.text(xloc, yloc, text, fontsize=10)
 
     # Draw an arrow at the observed metric value.
-    plt.annotate("Observed", xy=(observed, (ymax - ymin)*0.05), xytext=(observed, (ymax - ymin)*0.4), arrowprops={"facecolor":"black", "width":0.02}, ha="center")
+    observed_color = "blue" if observed_test else "black"
+    plt.annotate("Observed\nfit", xy=(observed_fit, (ymax - ymin)*0.05), xytext=(observed_fit, (ymax - ymin)*0.4), arrowprops={"facecolor":observed_color, "width":0.02}, ha="center")
+    if observed_test:
+        plt.annotate("Observed\ntest", xy=(observed_test, (ymax - ymin)*0.05), xytext=(observed_test, (ymax - ymin)*0.4), arrowprops={"facecolor":"red", "width":0.02}, ha="center")
+
     if not "." in plot_path:
         plt.savefig(plot_path + ".pdf")
         plt.savefig(plot_path + ".png")
