@@ -37,7 +37,7 @@ class DataTask:
         return len(cls.classes())
 
     @classmethod
-    def num_train_samples(cls, class_index: int):
+    def num_train_samples_per_class(cls, class_index: int):
         """Get the number of training samples per class."""
         # If the training sample counts were already loaded, return them.
         if hasattr(cls, "_train_sample_counts"):
@@ -54,7 +54,7 @@ class DataTask:
 
             # Json stores all keys (class indices) as strings.
             cls._train_sample_counts = {int(k): v for k, v in sample_counts.items()}
-        return cls.num_train_samples(class_index=class_index)
+        return cls.num_train_samples_per_class(class_index=class_index)
 
     @staticmethod
     @abstractmethod
