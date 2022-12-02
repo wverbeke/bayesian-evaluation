@@ -17,7 +17,13 @@ def plot_posterior_comparison(model_posteriors, model_names, plot_path, metric_n
     for posterior, name in zip(model_posteriors, model_names):
         plt.hist(posterior, bins=bins, histtype="step", label=name.replace("_", " "))
     plt.xlabel(metric_name)
-    plt.ylabel("Number of posterior samples")
+
+    # A single observed confusion matrix is given in cases where we are interested in the posterior distribution.
+    if observed_test is None:
+        plt.ylabel("Number of posterior samples")
+    # In the two matrix case we are interested in the posterior predictive distribution.
+    else:
+        plt.ylabel("Number of posterior predictive samples")
     plt.legend()
     plt.title(f"{task_name}: {class_name}, {num_class_samples} eval samples.")
 
@@ -34,7 +40,7 @@ def plot_posterior_comparison(model_posteriors, model_names, plot_path, metric_n
     ymin, ymax = ax.get_ylim()
     xloc = (xmax - xmin)*0.05 + xmin
     yloc = (ymax - ymin)*0.9 + ymin
-    text = f"{chain_length} elements in Markov chain"
+    text = f"{chain_length} samples drawn."
     ax.text(xloc, yloc, text, fontsize=10)
 
     # Draw an arrow at the observed metric value.
@@ -45,4 +51,5 @@ def plot_posterior_comparison(model_posteriors, model_names, plot_path, metric_n
 
     if not "." in plot_path:
         plt.savefig(plot_path + ".png")
+        plt.savefig(plot_path + ".pdf")
     plt.clf()

@@ -252,7 +252,6 @@ class MultinomialLikelihoodModel(BayesianModel):
         """Compute the recalls from the multinomial parameters."""
         cm_array = self._posterior_multinomial_params(trace=trace, class_index=class_index)
         return compute_recalls(cm_array=cm_array)
-        return divide_safe(tp_array, tp_array + fn_array)
 
     def posterior_precisions(self, trace, class_index):
         """Compute the precisions from the multinomial parameters."""
@@ -325,16 +324,16 @@ class FractionModel(BayesianModel):
         counts = concatenate_chains(pp_samples["count_likelihood"])
         true_counts = counts[:, class_index]
         false_counts = np.sum(counts, axis=1) - true_counts
-        true_fractions = concatenate_chains(pp_samples["true_class_fraction"])
-        true_fractions = true_fractions[:, class_index]
-        false_fractions = concatenate_chains(pp_samples["false_class_fraction"])
-        false_fractions = false_fractions[:, class_index]
+        true_class_counts = concatenate_chains(pp_samples["true_class_fraction"])
+        true_class_counts = true_class_counts[:, class_index]
+        false_class_counts = concatenate_chains(pp_samples["false_class_fraction"])
+        false_class_counts = false_class_counts[:, class_index]
 
-        tps = true_fractions*true_counts
-        fns = (true_counts - tps)
-        tns = false_fractions*false_counts
-        fps = (false_counts - tns)
-        return np.concatenate([tps, fps, fns, tns])
+        tps = true_class_counts
+        fns = true_counts - tps
+        tns = false_class_counts
+        fps = false_counts - tns
+        return np.concatenate([tps[:, np.newaxis], fps[:, np.newaxis], fns[:, np.newaxis], tns[:, np.newaxis]], axis=1)
 
 
 @register_bayesian_model

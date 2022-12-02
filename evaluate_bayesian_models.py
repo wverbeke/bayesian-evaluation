@@ -47,9 +47,15 @@ def plot_posterior_metrics(bayesian_models, separate_test_matrix):
         recall_arrays = []
         precision_arrays = []
         for b in bayesian_models:
-            trace = b.load_trace()
-            recall_arrays.append(b.posterior_recalls(trace=trace, class_index=class_index))
-            precision_arrays.append(b.posterior_precisions(trace=trace, class_index=class_index))
+            if separate_test_matrix:
+                pp = b.load_posterior_predictive()
+                recall_arrays.append(b.posterior_predictive_recalls(pp_samples=pp, class_index=class_index))
+                precision_arrays.append(b.posterior_predictive_precisions(pp_samples=pp, class_index=class_index))
+
+            else:
+                trace = b.load_trace()
+                recall_arrays.append(b.posterior_recalls(trace=trace, class_index=class_index))
+                precision_arrays.append(b.posterior_precisions(trace=trace, class_index=class_index))
         
         # If needed convert the test confusion matric to a one-vs-all confusion matrix for this
         # class.
@@ -123,5 +129,14 @@ if __name__ == "__main__":
                 trace = bm.trace(num_samples_per_core=args.num_samples_per_core, num_cores=args.num_cores)
                 print(f"Tracing {model_class.name()} took {time.time() - tic:.2f} s.")
             else:
+                trace = None
                 print("Trace already exists.")
+
+            # When comparing the fits on one confusion matrix to a separate test matrix we also need the posterior-predictive samples
+            if args.separate_test_matrix and not bm.posterior_predictive_exists():
+                trace = bm.load_trace() if trace is None else trace
+                bm.sample_posterior_predictive(trace=trace)
+            elif args.separate_test_matrix:
+                print("Posterior predictive samples already exist.")
+
         plot_posterior_metrics(b_models, separate_test_matrix=args.separate_test_matrix)
