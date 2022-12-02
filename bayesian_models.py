@@ -297,8 +297,48 @@ class SimpleModel(MultinomialLikelihoodModel):
         return model
 
 
+
+class FractionModel(BayesianModel):
+    """Base class for Bayesian models which model the fractions of correctly classified samples separately from the counts."""
+
+    def posterior_recalls(self, trace, class_index):
+        """Compute the recalls from the multinomial parameters."""
+        return concatenate_chains(trace["true_class_prior"][:, :, class_index])
+
+    def posterior_precisions(self, trace, class_index):
+        """Compute the precisions from the multinomial parameters."""
+        count_priors = concatenate_chains(trace["count_prior"])
+
+        true_fraction_prior = concatenate_chains(trace["true_class_prior"][:, :, class_index])
+        true_counts = count_priors[:, class_index]
+        true_positives = true_counts*true_fraction_prior
+
+        false_fraction_prior = concatenate_chains(trace["false_class_prior"][:, :, class_index])
+        false_counts = np.sum(count_priors, axis=1) - true_counts
+
+        false_positives = false_counts*(1.0 - false_fraction_prior)
+        return true_positives/(true_positives + false_positives)
+
+    def posterior_predictive_cms(self, pp_samples, class_index):
+        """Compute posterior predictive confusion matrices from posterior predictive samples."""
+        # Counts has shape N-samples X N-classes after concatenation of chains.
+        counts = concatenate_chains(pp_samples["count_likelihood"])
+        true_counts = counts[:, class_index]
+        false_counts = np.sum(counts, axis=1) - true_counts
+        true_fractions = concatenate_chains(pp_samples["true_class_fraction"])
+        true_fractions = true_fractions[:, class_index]
+        false_fractions = concatenate_chains(pp_samples["false_class_fraction"])
+        false_fractions = false_fractions[:, class_index]
+
+        tps = true_fractions*true_counts
+        fns = (true_counts - tps)
+        tns = false_fractions*false_counts
+        fps = (false_counts - tns)
+        return np.concatenate([tps, fps, fns, tns])
+
+
 @register_bayesian_model
-class FractionCountModel(BayesianModel):
+class FractionCountModel(FractionModel):
 
     @classmethod
     def name(cls):
@@ -341,46 +381,15 @@ class FractionCountModel(BayesianModel):
             return model
 
 
-    def posterior_recalls(self, trace, class_index):
-        """Compute the recalls from the multinomial parameters."""
-        return concatenate_chains(trace["true_class_prior"][:, :, class_index])
-
-    def posterior_precisions(self, trace, class_index):
-        """Compute the precisions from the multinomial parameters."""
-        count_priors = concatenate_chains(trace["count_prior"])
-
-        true_fraction_prior = concatenate_chains(trace["true_class_prior"][:, :, class_index])
-        true_counts = count_priors[:, class_index]
-        true_positives = true_counts*true_fraction_prior
-
-        false_fraction_prior = concatenate_chains(trace["false_class_prior"][:, :, class_index])
-        false_counts = np.sum(count_priors, axis=1) - true_counts
-
-        false_positives = false_counts*(1.0 - false_fraction_prior)
-        return true_positives/(true_positives + false_positives)
-
-    def posterior_predictive_cms(self, pp_samples, class_index):
-
-        # Counts has shape N-samples X N-classes after concatenation of chains.
-        counts = concatenate_chains(pp_samples["count_likelihood"])
-        true_counts = counts[:, class_index]
-        false_counts = np.sum(counts, axis=1) - true_counts
-        true_fractions = concatenate_chains(pp_samples["true_class_fraction"])
-        true_fractions = true_fractions[:, class_index]
-        false_fractions = concatenate_chains(pp_samples["false_class_fraction"])
-        false_fractions = false_fractions[:, class_index]
-
-        tps = true_fractions*true_counts
-        fns = (true_counts - tps)
-        tns = false_fractions*false_counts
-        fps = (false_counts - tns)
-        return np.concatenate([tps, fps, fns, tns])
 
 
 
 
+
+
+#TODO: refactor this class to reuse code from FractionCountModel
 @register_bayesian_model
-class LinearTrainSizeModel(BayesianModel):
+class LinearTrainSizeModel(FractionModel):
 
     @classmethod
     def name(cls):
@@ -423,22 +432,3 @@ class LinearTrainSizeModel(BayesianModel):
             false_class_fraction = pm.Binomial("false_class_fraction", p=false_class_prior, n=n_obs_false, observed=observed_tns)
 
             return model
-
-
-    def posterior_recalls(self, trace, class_index):
-        """Compute the recalls from the multinomial parameters."""
-        return concatenate_chains(trace["true_class_prior"][:, :, class_index])
-
-    def posterior_precisions(self, trace, class_index):
-        """Compute the precisions from the multinomial parameters."""
-        count_priors = concatenate_chains(trace["count_prior"])
-
-        true_fraction_prior = concatenate_chains(trace["true_class_prior"][:, :, class_index])
-        true_counts = count_priors[:, class_index]
-        true_positives = true_counts*true_fraction_prior
-
-        false_fraction_prior = concatenate_chains(trace["false_class_prior"][:, :, class_index])
-        false_counts = np.sum(count_priors, axis=1) - true_counts
-
-        false_positives = false_counts*(1.0 - false_fraction_prior)
-        return true_positives/(true_positives + false_positives)
