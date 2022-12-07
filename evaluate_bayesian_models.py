@@ -73,6 +73,7 @@ def plot_posterior_metrics(bayesian_models, separate_test_matrix):
 
             # Given that all models work on the same task, they have the same underlying observed confusion matrix
             # and class counts.
+            num_train_samples=b.num_train_samples_per_class(class_index),
             num_class_samples=b.num_eval_samples_per_class(class_index),
             observed_fit=b.observed_binary_cm(class_index).recall(),
             observed_test=test_cm.recall() if test_cm else None
@@ -84,6 +85,7 @@ def plot_posterior_metrics(bayesian_models, separate_test_matrix):
             metric_name="Precision",
             task_name=task_name,
             class_name=class_name,
+            num_train_samples=b.num_train_samples_per_class(class_index),
             num_class_samples=b.num_eval_samples_per_class(class_index),
             observed_fit=b.observed_binary_cm(class_index).precision(),
             observed_test=test_cm.precision() if test_cm else None

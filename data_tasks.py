@@ -262,7 +262,7 @@ class Flowers102Task(DataTask):
 
 @register_task
 class SimpleSyntheticTask(DataTask):
-    n_classes = 10
+    n_classes = 100
     n_samples_per_class = 10
     p_tp = 0.9
     seed = 42
@@ -286,9 +286,46 @@ class SimpleSyntheticTask(DataTask):
             p_vector[class_] = cls.p_tp
             class_cm = rng.multinomial(cls.n_samples_per_class, p_vector)
             cm.append(class_cm)
-        cm = np.array(cm)
+        cm = np.array(cm).T
         return cm
 
     @classmethod
     def num_train_samples_per_class(cls, class_index: int):
         return 1  # :)
+
+
+@register_task
+class StructuredSyntheticTask(DataTask):
+    """Synthetic data, where the num train samples differs between classes, and common classes have better performance"""
+    n_classes = 100
+    n_samples_per_class = 10
+    p_tp = 0.9
+    seed = 42
+
+    @classmethod
+    def classes(cls):
+        return [str(i) for i in range(cls.n_classes)]
+
+    def data_loader():
+        raise NotImplementedError
+
+    def name():
+        return "StructuredSynthetic"
+
+    @classmethod
+    def confusion_matrix(cls):
+        rng = np.random.default_rng(cls.seed)  # We want to get the same CM for multiple models
+        cm = []
+        for class_ in range(cls.n_classes):
+            num_train_samples = cls.num_train_samples_per_class(class_)
+            p_tp = num_train_samples / (num_train_samples + 1)
+            p_vector = [(1 - p_tp) / (cls.n_classes - 1) for _ in range(cls.n_classes)]
+            p_vector[class_] = p_tp
+            class_cm = rng.multinomial(cls.n_samples_per_class, p_vector)
+            cm.append(class_cm)
+        cm = np.array(cm).T
+        return cm
+
+    @classmethod
+    def num_train_samples_per_class(cls, class_index: int):
+        return 1 + class_index

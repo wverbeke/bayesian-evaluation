@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 
-def plot_posterior_comparison(model_posteriors, model_names, plot_path, metric_name, task_name, class_name, num_class_samples, observed_fit, observed_test=None, num_bins: int = 40):
+def plot_posterior_comparison(model_posteriors, model_names, plot_path, metric_name, task_name, class_name, num_train_samples, num_eval_samples, observed_fit, observed_test=None, num_bins: int = 40):
 
     if len(model_posteriors) < 1:
         raise ValueError("There must be at least one posterior to plot.")
@@ -25,7 +25,7 @@ def plot_posterior_comparison(model_posteriors, model_names, plot_path, metric_n
     else:
         plt.ylabel("Number of posterior predictive samples")
     plt.legend()
-    plt.title(f"{task_name}: {class_name}, {num_class_samples} eval samples.")
+    plt.title(f"{task_name}: {class_name}, {num_eval_samples} eval samples, {num_train_samples} train samples.")
 
     # Make the y-range decent to avoid overlap between the legend and the graph.
     ax = plt.gca()
