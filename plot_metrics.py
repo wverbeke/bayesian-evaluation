@@ -51,5 +51,4 @@ def plot_posterior_comparison(model_posteriors, model_names, plot_path, metric_n
 
     if not "." in plot_path:
         plt.savefig(plot_path + ".png")
-        plt.savefig(plot_path + ".pdf")
     plt.clf()
